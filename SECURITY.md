@@ -12,7 +12,9 @@ The local server binds to loopback, checks Host/Origin and uses a local session.
 
 Commit empty examples rather than real settings. Exclude `.env`, application `config.json`, private keys, AWS credentials, generated packages and raw monitoring reports. The public-repository check flags common credential patterns, private filenames, account-specific ARNs, staged secrets and broken relative documentation links. It does not detect every secret or inspect the entire Git history. Images and PDFs require visual review.
 
-CI has `contents: read`, does not persist checkout credentials, uses pinned action commits and has no AWS role or OIDC permission. Public pull requests run fixture checks without production credentials. AWS deployment trust will be added in a separate reviewed change after the repository exists.
+CI has `contents: read`, does not persist checkout credentials, uses pinned action commits and has no AWS role or OIDC permission. Public pull requests run fixture checks without production credentials. The separate deployment job requests OIDC credentials only for the configured repository's current `main` commit; its trust includes immutable owner/repository IDs. Setup is described in [deployment automation](docs/deployment-automation.md).
+
+The delivery role updates one existing app stack, a private release bucket and the app's website assets. CloudFormation receives separate, resource-scoped execution permissions. The workflow refuses additions/removals/replacements and IAM/secret/saved-query changes. The deployment role cannot directly read secret values, but trusted application-code deployment can exercise the application's existing runtime permissions; protect main and maintainer access accordingly. A saved release does not back up job data or credentials.
 
 Enable GitHub secret scanning/push protection and private vulnerability reporting in the repository's settings. A workflow passing after a push does not undo a credential exposure in that push. If a real credential is ever committed, revoke/rotate it first and then remove it from history and affected artifacts. `.gitignore` does not remove files already tracked by Git.
 

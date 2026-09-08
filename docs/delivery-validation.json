@@ -1,0 +1,25 @@
+{
+  "preparedFor": "Chris-57/karaokekonverter",
+  "date": "2026-09-08",
+  "applicationVersion": "0.3.0",
+  "status": "Prepared and checked offline; live bootstrap, OIDC deployment and restore remain owner-run acceptance.",
+  "checks": {
+    "javascriptTests": {"passed": 80, "failed": 0, "skipped": 0},
+    "pythonTests": {"passed": 37, "failed": 0, "monitoringTests": 5, "deliveryTests": 32},
+    "sourceChecks": {"status": "passed", "files": 55},
+    "samApplicationLint": "passed using SAM 1.166.1 and cfn-lint 1.53.3",
+    "samBootstrapLint": "passed for the generated template with synthetic account/resource metadata",
+    "samVersionPinnedTemplateLint": "passed for the actual app template with synthetic S3 archive versions",
+    "workflowYaml": "both workflows parsed; action pins and deployment concurrency checked",
+    "publicRepositoryCheck": "passed; common credentials, private paths, index content and local Markdown links",
+    "runtimeScope": "Application source, website, app stack template and dependency locks unchanged. Package metadata/scripts remain the published preparation baseline."
+  },
+  "limitations": {
+    "dependencyInstall": "Local JavaScript tests reused the working release's installed dependencies; no new clean install or full SAM build is claimed for this update.",
+    "awsAuthorization": "Policies have not yet been exercised in the owner's AWS account.",
+    "cloudDeploymentAndRestore": "Pending first live runs and provider smoke tests.",
+    "providerRequests": 0,
+    "awsMutations": 0,
+    "githubMutations": 0
+  }
+}

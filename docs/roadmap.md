@@ -4,19 +4,19 @@
 
 Version 0.3.0 supports the local and AWS SoundCloud/Spotify conversion paths with a 20-track cap. The owner reports successful live conversions from both sources. CloudWatch dashboard data and controlled ALARM/OK email receipt have been supplied. See [validation](validation.md) and [monitoring evidence](evidence/monitoring-acceptance.md).
 
-## Current: publish the repository and run CI
+## Completed: publish the repository and run CI
 
-The prepared public repository targets `Chris-57/karaokekonverter`. It includes source, tests, infrastructure, operational documentation, a pinned CI workflow and dependency-update proposals. The first hosted CI run is pending publication. The application runtime, provider dependencies and AWS resource definitions remain those of the working 0.3.0 release.
+The public repository is `Chris-57/karaokekonverter`. It includes source, tests, infrastructure, operational documentation, a pinned CI workflow and dependency-update proposals. The owner supplied passing initial and dependency-fix CI runs. The application runtime, provider dependencies and app stack definitions remain those of the working 0.3.0 release.
 
-## Next: AWS deployment automation
+## Current: connect and accept AWS deployment automation
 
-1. Publish the repository, record its first passing CI run and require that check for `main`.
-2. Configure GitHub OIDC with trust scoped to the actual repository identity and intended release branch/environment.
-3. Automate updates to the existing stack and website assets, with one deployment at a time and post-deployment health checks.
-4. Exercise a harmless release and a documented redeployment of a known-good release. Record commit, workflow run and resulting application version.
-5. Add the deployment workflow and recovery evidence to the public reviewer materials. Keep API keys and the shared demo code private.
+1. Merge the prepared delivery workflow and require passing CI for `main`.
+2. Apply the separate IAM/bootstrap stack using the existing administrator's CloudShell session.
+3. Configure the three non-secret repository variables and run the first OIDC deployment.
+4. Verify live Spotify and SoundCloud conversions, then a harmless automatic main release and deliberate restore of a verified release.
+5. Record commit, workflow URL and release/recovery evidence in the public reviewer materials. Keep API keys and the shared demo code private.
 
-No OIDC role, deployment workflow or automated rollback is included in the first repository preparation. The existing CloudShell deployment method remains available in [AWS deployment](aws-deployment.md).
+The workflow, resource-scoped bootstrap generator, release snapshots, post-deploy checks and restore action are implemented in this update. Live AWS authorization/deployment/restore are not yet claimed. Follow [deployment automation](deployment-automation.md); manual infrastructure changes must account for the persistent CloudFormation service role described there.
 
 ## Remaining acceptance and product decisions
 

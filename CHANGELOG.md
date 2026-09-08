@@ -2,14 +2,23 @@
 
 Historical entries describe the state at each release. See [current validation](docs/validation.md) for subsequent live acceptance.
 
-## Unreleased — public repository preparation
+## Unreleased — deployment automation
+
+- Add a separate IAM/bootstrap stack with an exact numeric-ID GitHub OIDC subject, two scoped roles and private versioned release storage.
+- Add an opt-in deployment workflow after successful main CI, current-commit checks, pre-authentication tests/build, and serialized existing-stack updates.
+- Reject resource additions/removals/replacements and IAM/secret/saved-query changes before executing a change set.
+- Snapshot the deployed baseline, pin Lambda archive versions, publish website assets and verify health/file hashes before marking a release verified.
+- Add an explicit restore action, offline delivery regressions and setup/recovery/acceptance guides. First live OIDC deployment and restore remain owner-run acceptance.
+- Keep the application version, SoundCloud/Spotify paths, 20-track cap, runtime dependencies and app stack definition at 0.3.0.
+
+## Repository publication — 2026-09-08
 
 - Prepare Chris-57/karaokekonverter with a reviewer README, architecture/demo/operations guides and current acceptance evidence.
 - Add GitHub CI for public-file checks, 80 JavaScript tests, five Python tests, SAM lint/build and packaged-handler imports; first hosted run follows publication.
 - Pin Action commits and development tools, add Dependabot, CODEOWNERS and contributor/PR guidance.
 - Check staged credentials and accidentally tracked settings; exclude local configuration and raw reports.
 - Correct CloudShell build instructions to use Node.js 24 and temporary storage. Keep application version 0.3.0, runtime behavior, provider dependencies and infrastructure unchanged.
-- GitHub OIDC deployment is the next stage; this CI workflow has no AWS credentials or deployment permissions.
+- The owner subsequently supplied passing initial and dependency-fix CI results. SAM now selects its compatible cfn-lint dependency; Dependabot closed the incompatible standalone-linter proposal. CI itself has no AWS credentials or deployment permissions.
 
 ## 0.3.0 — CloudWatch operations and alerts
 

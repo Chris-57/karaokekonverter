@@ -1,6 +1,8 @@
 # AWS deployment
 
-The working demo is stack **karaokekonverter-dev** in **us-east-2**, with both sources and monitoring enabled. The owner reports successful conversions, completed monitoring deployment and both controlled notification emails. Repository preparation does not redeploy it. The CI workflow currently validates/builds only; OIDC deployment is the next milestone.
+The working demo is stack **karaokekonverter-dev** in **us-east-2**, with both sources and monitoring enabled. The owner reports successful conversions, completed monitoring deployment and both controlled notification emails. Follow [deployment automation](deployment-automation.md) for the new GitHub OIDC workflow. This page retains manual/operator deployment instructions.
+
+After the first automated update, the stack retains its scoped CloudFormation service role. Pause automatic deployments and review that role's permissions before a manual infrastructure change; administrator access in your shell alone does not expand the role CloudFormation uses. See [recovery and infrastructure changes](deployment-recovery.md).
 
 ## Existing-stack updates
 

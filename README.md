@@ -4,7 +4,7 @@
 
 Turn a public **SoundCloud or Spotify playlist** into an ordered set of YouTube karaoke matches. Built by [Christopher Meumann](https://github.com/Chris-57) as an AWS application and infrastructure-operations portfolio project, rebuilding an earlier school project.
 
-**[Open the AWS demo](https://d2j5ofy3dzbrbx.cloudfront.net) · [Try the demo](docs/demo.md) · [Architecture](docs/architecture.md) · [Test evidence](docs/validation.md) · [Operations](docs/monitoring.md)**
+**[Open the AWS demo](https://d2j5ofy3dzbrbx.cloudfront.net) · [Try the demo](docs/demo.md) · [Architecture](docs/architecture.md) · [Test evidence](docs/validation.md) · [Operations](docs/monitoring.md) · [Deployment](docs/deployment-automation.md)**
 
 The hosted demo requires an application access code supplied privately by the owner. Visitors do not supply a YouTube key or sign into a music service. Public playlists are limited to **20 tracks**. The owner's backend uses YouTube Data API v3 for search; the deployed SoundCloud and Spotify readers extract public-page metadata with Chromium. Spotify Web API/OAuth integration is not implemented.
 
@@ -49,7 +49,7 @@ Secrets Manager supplies server configuration. Structured logs, CloudWatch metri
 
 Application version **0.3.0** is deployed in AWS Ohio. The owner has verified live conversions for both sources and received the controlled **ALARM and OK** emails. Dashboard screenshots show application metrics, 14 source tracks / 13 matches in the displayed sample, and all ten alarms in OK. These observations are sample acceptance evidence, not an availability or accuracy guarantee.
 
-The source contains **76 application/monitoring JavaScript tests plus four repository-check tests**, and **five Python monitoring-CLI tests**. CI is included in this repository; its first GitHub-hosted run must succeed after publication. Automated AWS deployment is the next stage and is not enabled by this initial workflow. See [validation](docs/validation.md) and [CI](docs/ci.md) for the precise scope.
+The source contains **80 JavaScript tests** and Python tests for monitoring, deployment permissions and release recovery. The owner supplied passing GitHub CI runs. A separate OIDC deployment workflow is now included; its IAM bootstrap, first deployment and restore exercise remain owner-run acceptance. It stays disabled until its repository variables are configured. See [validation](docs/validation.md), [CI](docs/ci.md) and [deployment acceptance](docs/evidence/deployment-acceptance.md) for the precise scope.
 
 ## Run locally
 
@@ -73,7 +73,7 @@ npm.cmd test
 npm.cmd run check
 ```
 
-The public-repository check needs Node only; it also inspects the Git index when Git is available. Python 3.12 runs the monitoring-CLI tests with `python -m unittest discover -s tests -p 'test_*.py'`. GitHub CI performs these checks plus SAM validation, a clean Lambda build and packaged-handler imports. Tests use fixtures and do not spend YouTube quota.
+The public-repository check needs Node only; it also inspects the Git index when Git is available. Python 3.12 runs the monitoring and delivery tests with `python -m unittest discover -s tests -p 'test_*.py'`. GitHub CI performs these checks plus application/bootstrap template validation, a clean Lambda build and packaged-handler imports. Tests use fixtures and do not spend YouTube quota.
 
 ## Documentation
 
@@ -84,6 +84,8 @@ The public-repository check needs Node only; it also inspects the Git index when
 | [Monitoring runbook](docs/monitoring.md) | Dashboard, alarm thresholds, notification test and incident response |
 | [Validation record](docs/validation.md) | Automated checks, owner-provided live evidence and remaining checks |
 | [CI workflow](docs/ci.md) | Triggers, permissions, pinned tools and build verification |
+| [Deployment automation](docs/deployment-automation.md) | GitHub OIDC, separate IAM bootstrap, release publication and first-run setup |
+| [Deployment recovery](docs/deployment-recovery.md) | Restore verified code/assets and handle interrupted deployments |
 | [AWS deployment](docs/aws-deployment.md) | Existing-stack updates, first installs and website publishing |
 | [Operations runbook](docs/runbook.md) | Troubleshooting, recovery and resource retirement |
 | [Security and credentials](SECURITY.md) | Configuration boundaries and safe issue reporting |
