@@ -155,6 +155,10 @@ def generate(config, account, stack, resources, template, provider=None, role_ar
     api = f"arn:aws:apigateway:{region}::/apis/" + physical("HttpApi", "AWS::ApiGatewayV2::Api")
     execution.append(allow(["apigateway:GET", "apigateway:PATCH", "apigateway:PUT", "apigateway:POST",
                             "apigateway:DELETE"], [api, api + "/*"]))
+    # Preparing a SAM change set separately authorizes the AWS-owned transform
+    # using the CloudFormation service role. The ARN's account field is "aws".
+    execution.append(allow(["cloudformation:CreateChangeSet"],
+        f"arn:aws:cloudformation:{region}:aws:transform/Serverless-2016-10-31"))
 
     generated = {
         "AWSTemplateFormatVersion": "2010-09-09",
