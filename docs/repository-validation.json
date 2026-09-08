@@ -1,0 +1,41 @@
+{
+  "applicationVersion": "0.3.0",
+  "preparedFor": "Chris-57/karaokekonverter",
+  "date": "2026-09-08",
+  "validationStatus": "local preparation checks passed; first hosted CI run pending",
+  "environment": {
+    "node": "24.19.0",
+    "samCli": "1.166.1",
+    "cfnLint": "1.53.3",
+    "applicationDependencies": "Reused the installed working-release dependencies for local tests; no new clean install is claimed."
+  },
+  "checks": {
+    "javascriptTests": {"passed": 80, "failed": 0, "skipped": 0},
+    "pythonTests": {"passed": 5, "failed": 0},
+    "sourceSyntaxAndCredentialCheck": {"status": "passed", "files": 47},
+    "publicRepositoryCheck": {
+      "status": "passed",
+      "scope": "Working source, staged index, private filenames, common credential patterns and relative Markdown links; not an exhaustive security or Git-history audit."
+    },
+    "samValidateLint": "passed",
+    "workflowStructure": "passed",
+    "actionReferences": "Three release commits verified and pinned to full hashes.",
+    "runtimeBaselineComparison": {
+      "status": "passed",
+      "unchangedFiles": 43,
+      "scope": "All baseline runtime, frontend, local server, monitoring function, infrastructure, existing test and dependency-lock files."
+    },
+    "packagedHandlerImports": {
+      "status": "passed",
+      "handlers": ["ApiFunction", "WorkerFunction", "AvailabilityFunction"],
+      "bothSourceReadersPresent": true,
+      "scope": "Existing npm-packed source and SAM-built availability artifact, byte-compared with this unchanged runtime; working-release dependencies reused. This is not a new clean SAM build."
+    }
+  },
+  "newCleanSamBuild": "Not performed in this environment; first GitHub-hosted CI run must verify a clean dependency install and SAM build.",
+  "liveProviderRequestsDuringPreparation": 0,
+  "awsMutationsDuringPreparation": 0,
+  "githubPublished": false,
+  "githubHostedCi": "pending first publication",
+  "awsDeploymentAutomation": "Not configured in this package. OIDC setup follows repository publication and successful hosted CI."
+}

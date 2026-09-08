@@ -1,0 +1,886 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: KaraokeKonverter SoundCloud and Spotify conversion; a separate AWS stack without imported legacy resources.
+
+Globals:
+  Function:
+    Runtime: nodejs24.x
+    LoggingConfig: {LogFormat: JSON}
+    Architectures: [x86_64]
+    CodeUri: ../
+    Environment:
+      Variables:
+        JOBS_TABLE: !Ref JobsTable
+        CONFIG_SECRET_ARN: !Ref AppConfig
+        MAX_TRACKS: '20'
+    Tags:
+      Project: KaraokeKonverter
+      Component: Application
+
+Resources:
+  AppConfig:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: KaraokeKonverter server credentials. Add YOUTUBE_API_KEY after deployment.
+      GenerateSecretString:
+        SecretStringTemplate: '{"YOUTUBE_API_KEY":"","SOUNDCLOUD_MODE":"browser"}'
+        GenerateStringKey: APP_ACCESS_CODE
+        PasswordLength: 32
+        ExcludePunctuation: true
+      Tags: [{Key: Project, Value: KaraokeKonverter}]
+  JobsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{AttributeName: id, AttributeType: S}]
+      KeySchema: [{AttributeName: id, KeyType: HASH}]
+      TimeToLiveSpecification: {AttributeName: expiresAt, Enabled: true}
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+      SSESpecification: {SSEEnabled: true}
+      Tags: [{Key: Project, Value: KaraokeKonverter}]
+  DeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+      Tags: [{Key: Project, Value: KaraokeKonverter}]
+  JobsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 3600
+      MessageRetentionPeriod: 86400
+      SqsManagedSseEnabled: true
+      RedrivePolicy: {deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn, maxReceiveCount: 3}
+      Tags: [{Key: Project, Value: KaraokeKonverter}]
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiAccessLogs.Arn
+        Format: '{"event":"gateway_request","apiRequestId":"$context.requestId","method":"$context.httpMethod","route":"$context.routeKey","status":"$context.status","elapsedMs":"$context.responseLatency","responseBytes":"$context.responseLength"}'
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 10
+        ThrottlingRateLimit: 5
+      Tags: {Project: KaraokeKonverter}
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildProperties: {UseNpmCi: true}
+    Properties:
+      Handler: src/aws/api-handler.handler
+      Timeout: 20
+      MemorySize: 256
+      Environment:
+        Variables:
+          JOBS_QUEUE_URL: !Ref JobsQueue
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem]
+              Resource: !GetAtt JobsTable.Arn
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt JobsQueue.Arn
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref AppConfig
+      Events:
+        Api:
+          Type: HttpApi
+          Properties: {ApiId: !Ref HttpApi, Path: '/api/{proxy+}', Method: ANY}
+  WorkerFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildProperties: {UseNpmCi: true}
+    Properties:
+      Handler: src/aws/worker-handler.handler
+      Timeout: 600
+      MemorySize: 2048
+      EphemeralStorage: {Size: 1024}
+      # The account currently has 10 total concurrent executions. Do not reserve
+      # function capacity: AWS requires a minimum unreserved pool for reservations.
+      # Queue.ScalingConfig below limits THIS SQS mapping to two workers instead.
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:UpdateItem]
+              Resource: !GetAtt JobsTable.Arn
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref AppConfig
+            - Effect: Allow
+              Action: [sqs:ReceiveMessage, sqs:DeleteMessage, sqs:GetQueueAttributes]
+              Resource: !GetAtt JobsQueue.Arn
+      Events:
+        Queue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt JobsQueue.Arn
+            BatchSize: 1
+            FunctionResponseTypes: [ReportBatchItemFailures]
+            ScalingConfig: {MaximumConcurrency: 2}
+  ApiLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: {LogGroupName: !Sub '/aws/lambda/${ApiFunction}', RetentionInDays: 14}
+  ApiAccessLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: {LogGroupName: !Sub '/karaokekonverter/${AWS::StackName}/http-api', RetentionInDays: 14}
+  WorkerLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: {LogGroupName: !Sub '/aws/lambda/${WorkerFunction}', RetentionInDays: 14}
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration: {BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration: [{ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}}]
+      VersioningConfiguration: {Status: Enabled}
+      Tags: [{Key: Project, Value: KaraokeKonverter}]
+  OriginAccess:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${AWS::StackName}-website'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+  AssetCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub '${AWS::StackName}-assets'
+        MinTTL: 0
+        DefaultTTL: 60
+        MaxTTL: 3600
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingGzip: true
+          EnableAcceptEncodingBrotli: true
+          CookiesConfig: {CookieBehavior: none}
+          HeadersConfig: {HeaderBehavior: none}
+          QueryStringsConfig: {QueryStringBehavior: none}
+  ApiCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub '${AWS::StackName}-api'
+        MinTTL: 0
+        DefaultTTL: 0
+        MaxTTL: 0
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingGzip: false
+          EnableAcceptEncodingBrotli: false
+          CookiesConfig: {CookieBehavior: none}
+          HeadersConfig: {HeaderBehavior: none}
+          QueryStringsConfig: {QueryStringBehavior: none}
+  ApiOriginRequestPolicy:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: !Sub '${AWS::StackName}-api-origin'
+        CookiesConfig: {CookieBehavior: none}
+        HeadersConfig: {HeaderBehavior: allExcept, Headers: [host]}
+        QueryStringsConfig: {QueryStringBehavior: none}
+  SecurityHeaders:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub '${AWS::StackName}-headers'
+        SecurityHeadersConfig:
+          ContentTypeOptions: {Override: true}
+          FrameOptions: {FrameOption: DENY, Override: true}
+          ReferrerPolicy: {ReferrerPolicy: no-referrer, Override: true}
+          StrictTransportSecurity: {AccessControlMaxAgeSec: 31536000, Override: true}
+          ContentSecurityPolicy:
+            ContentSecurityPolicy: "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+            Override: true
+  Website:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        PriceClass: PriceClass_100
+        HttpVersion: http2
+        Origins:
+          - Id: static
+            DomainName: !GetAtt WebsiteBucket.RegionalDomainName
+            OriginAccessControlId: !Ref OriginAccess
+            S3OriginConfig: {OriginAccessIdentity: ''}
+          - Id: api
+            DomainName: !Select [2, !Split ['/', !GetAtt HttpApi.ApiEndpoint]]
+            CustomOriginConfig: {OriginProtocolPolicy: https-only, OriginSSLProtocols: [TLSv1.2]}
+        DefaultCacheBehavior:
+          TargetOriginId: static
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          Compress: true
+          CachePolicyId: !Ref AssetCachePolicy
+          ResponseHeadersPolicyId: !Ref SecurityHeaders
+        CacheBehaviors:
+          - PathPattern: '/api/*'
+            TargetOriginId: api
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachePolicyId: !Ref ApiCachePolicy
+            OriginRequestPolicyId: !Ref ApiOriginRequestPolicy
+            ResponseHeadersPolicyId: !Ref SecurityHeaders
+      Tags: [{Key: Project, Value: KaraokeKonverter}]
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: cloudfront.amazonaws.com}
+            Action: s3:GetObject
+            Resource: !Sub '${WebsiteBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Website}'
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Tags: [{Key: Project, Value: KaraokeKonverter}]
+  DeadLetterAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Conversion messages reached the dead-letter queue; investigate worker logs before redriving.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions: [{Name: QueueName, Value: !GetAtt DeadLetterQueue.QueueName}]
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+  WorkerErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Worker crashes and timeouts. Handled failures are covered by OperationalFailuresAlarm; see docs/monitoring.md.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: [{Name: FunctionName, Value: !Ref WorkerFunction}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+      OKActions: [!Ref AlertTopic]
+
+  # Monitoring: bounded custom metrics, native service metrics and a quota-free probe.
+  AlertTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+      - Ref: AlertTopic
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: StackAlarmNotifications
+          Effect: Allow
+          Principal:
+            Service: cloudwatch.amazonaws.com
+          Action: sns:Publish
+          Resource:
+            Ref: AlertTopic
+          Condition:
+            StringEquals:
+              aws:SourceAccount:
+                Ref: AWS::AccountId
+            ArnLike:
+              aws:SourceArn:
+                Fn::Sub: arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:${AWS::StackName}-*
+  AvailabilityLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /karaokekonverter/${AWS::StackName}/availability
+      RetentionInDays: 14
+  AvailabilityRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: WriteOwnMonitoringLogs
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource:
+              Fn::GetAtt:
+              - AvailabilityLogs
+              - Arn
+  AvailabilityFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../monitoring/
+      Handler: handler.handler
+      Timeout: 25
+      MemorySize: 128
+      Role:
+        Fn::GetAtt:
+        - AvailabilityRole
+        - Arn
+      LoggingConfig:
+        LogFormat: JSON
+        LogGroup:
+          Ref: AvailabilityLogs
+      Environment:
+        Variables:
+          WEBSITE_URL:
+            Fn::Sub: https://${Website.DomainName}
+      EventInvokeConfig:
+        MaximumEventAgeInSeconds: 240
+        MaximumRetryAttempts: 0
+  CompletedJobsMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName:
+        Ref: WorkerLogs
+      FilterPattern: '{ $.outcome = 1 && $.completedJobs >= 0 }'
+      MetricTransformations:
+      - MetricNamespace:
+          Fn::Sub: KaraokeKonverter/${AWS::StackName}
+        MetricName: CompletedJobs
+        MetricValue: $.completedJobs
+        Unit: Count
+  PartialJobsMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName:
+        Ref: WorkerLogs
+      FilterPattern: '{ $.outcome = 1 && $.partialJobs >= 0 }'
+      MetricTransformations:
+      - MetricNamespace:
+          Fn::Sub: KaraokeKonverter/${AWS::StackName}
+        MetricName: PartialJobs
+        MetricValue: $.partialJobs
+        Unit: Count
+  FailedJobsMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName:
+        Ref: WorkerLogs
+      FilterPattern: '{ $.outcome = 1 && $.failedJobs >= 0 }'
+      MetricTransformations:
+      - MetricNamespace:
+          Fn::Sub: KaraokeKonverter/${AWS::StackName}
+        MetricName: FailedJobs
+        MetricValue: $.failedJobs
+        Unit: Count
+  JobDurationMsMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName:
+        Ref: WorkerLogs
+      FilterPattern: '{ $.outcome = 1 && $.elapsedMs >= 0 }'
+      MetricTransformations:
+      - MetricNamespace:
+          Fn::Sub: KaraokeKonverter/${AWS::StackName}
+        MetricName: JobDurationMs
+        MetricValue: $.elapsedMs
+        Unit: Milliseconds
+  SourceTracksMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName:
+        Ref: WorkerLogs
+      FilterPattern: '{ $.outcome = 1 && $.tracks >= 0 }'
+      MetricTransformations:
+      - MetricNamespace:
+          Fn::Sub: KaraokeKonverter/${AWS::StackName}
+        MetricName: SourceTracks
+        MetricValue: $.tracks
+        Unit: Count
+  MatchedTracksMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName:
+        Ref: WorkerLogs
+      FilterPattern: '{ $.outcome = 1 && $.matched >= 0 }'
+      MetricTransformations:
+      - MetricNamespace:
+          Fn::Sub: KaraokeKonverter/${AWS::StackName}
+        MetricName: MatchedTracks
+        MetricValue: $.matched
+        Unit: Count
+  QueueWaitMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName:
+        Ref: WorkerLogs
+      FilterPattern: '{ $.event = "conversion_started" && $.queueWaitMs >= 0 }'
+      MetricTransformations:
+      - MetricNamespace:
+          Fn::Sub: KaraokeKonverter/${AWS::StackName}
+        MetricName: QueueWaitMs
+        MetricValue: $.queueWaitMs
+        Unit: Milliseconds
+  ApiLogsOperationalMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName:
+        Ref: ApiLogs
+      FilterPattern: '{ $.operationalFailure >= 0 }'
+      MetricTransformations:
+      - MetricNamespace:
+          Fn::Sub: KaraokeKonverter/${AWS::StackName}
+        MetricName: OperationalFailures
+        MetricValue: $.operationalFailure
+        Unit: Count
+  WorkerLogsOperationalMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName:
+        Ref: WorkerLogs
+      FilterPattern: '{ $.operationalFailure >= 0 }'
+      MetricTransformations:
+      - MetricNamespace:
+          Fn::Sub: KaraokeKonverter/${AWS::StackName}
+        MetricName: OperationalFailures
+        MetricValue: $.operationalFailure
+        Unit: Count
+  AvailabilityMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName:
+        Ref: AvailabilityLogs
+      FilterPattern: '{ $.event = "availability_checked" && $.availabilityFailure >= 0 }'
+      MetricTransformations:
+      - MetricNamespace:
+          Fn::Sub: KaraokeKonverter/${AWS::StackName}
+        MetricName: AvailabilityFailures
+        MetricValue: $.availabilityFailure
+        Unit: Count
+  MonitoringTestMetric:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName:
+        Ref: AvailabilityLogs
+      FilterPattern: '{ $.event = "monitoring_test" && $.testFailure >= 0 }'
+      MetricTransformations:
+      - MetricNamespace:
+          Fn::Sub: KaraokeKonverter/${AWS::StackName}
+        MetricName: MonitoringTestFailures
+        MetricValue: $.testFailure
+        Unit: Count
+  AvailabilitySchedule:
+    Type: AWS::Events::Rule
+    DependsOn:
+    - AvailabilityMetric
+    - MonitoringTestMetric
+    Properties:
+      Description: Check CloudFront HTML and API configuration every five minutes; no music-provider requests.
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+      - Id: WebsiteAvailability
+        Arn:
+          Fn::GetAtt:
+          - AvailabilityFunction
+          - Arn
+        Input: '{"operation":"check"}'
+        RetryPolicy:
+          MaximumEventAgeInSeconds: 240
+          MaximumRetryAttempts: 2
+  AvailabilitySchedulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: AvailabilityFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+        - AvailabilitySchedule
+        - Arn
+  ApiErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+    - AlertTopicPolicy
+    Properties:
+      AlarmDescription: API Lambda crashed or timed out. See docs/monitoring.md in the release.
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - Ref: AlertTopic
+      OKActions:
+      - Ref: AlertTopic
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+      - Name: FunctionName
+        Value:
+          Ref: ApiFunction
+      Period: 300
+      Statistic: Sum
+  ApiServerErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+    - AlertTopicPolicy
+    Properties:
+      AlarmDescription: The HTTP API returned a server error. Check API logs and configuration; a 4xx alone does not
+        trigger this alarm. See docs/monitoring.md in the release.
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - Ref: AlertTopic
+      OKActions:
+      - Ref: AlertTopic
+      Namespace: AWS/ApiGateway
+      MetricName: 5xx
+      Dimensions:
+      - Name: ApiId
+        Value:
+          Ref: HttpApi
+      Period: 300
+      Statistic: Sum
+  LambdaThrottlesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+    - AlertTopicPolicy
+    Properties:
+      AlarmDescription: One of the application or monitoring Lambdas was throttled. Inspect account concurrency; do
+        not add reserved capacity blindly. See docs/monitoring.md in the release.
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - Ref: AlertTopic
+      OKActions:
+      - Ref: AlertTopic
+      Metrics:
+      - Id: api
+        MetricStat:
+          Metric:
+            Namespace: AWS/Lambda
+            MetricName: Throttles
+            Dimensions:
+            - Name: FunctionName
+              Value:
+                Ref: ApiFunction
+          Period: 300
+          Stat: Sum
+        ReturnData: false
+      - Id: worker
+        MetricStat:
+          Metric:
+            Namespace: AWS/Lambda
+            MetricName: Throttles
+            Dimensions:
+            - Name: FunctionName
+              Value:
+                Ref: WorkerFunction
+          Period: 300
+          Stat: Sum
+        ReturnData: false
+      - Id: probe
+        MetricStat:
+          Metric:
+            Namespace: AWS/Lambda
+            MetricName: Throttles
+            Dimensions:
+            - Name: FunctionName
+              Value:
+                Ref: AvailabilityFunction
+          Period: 300
+          Stat: Sum
+        ReturnData: false
+      - Id: total
+        Expression: SUM([api,worker,probe])
+        Label: Lambda throttles
+        ReturnData: true
+  QueueAgeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+    - AlertTopicPolicy
+    Properties:
+      AlarmDescription: Queued work is at least ten minutes old in two of three one-minute samples. Check worker activity,
+        retries and backlog. See docs/monitoring.md in the release.
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 600
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - Ref: AlertTopic
+      OKActions:
+      - Ref: AlertTopic
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+      - Name: QueueName
+        Value:
+          Fn::GetAtt:
+          - JobsQueue
+          - QueueName
+      Period: 60
+      Statistic: Maximum
+  DatabaseThrottlesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+    - AlertTopicPolicy
+    Properties:
+      AlarmDescription: DynamoDB rejected a read or write due to throttling. Inspect capacity and recent traffic.
+        See docs/monitoring.md in the release.
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - Ref: AlertTopic
+      OKActions:
+      - Ref: AlertTopic
+      Metrics:
+      - Id: reads
+        MetricStat:
+          Metric:
+            Namespace: AWS/DynamoDB
+            MetricName: ReadThrottleEvents
+            Dimensions:
+            - Name: TableName
+              Value:
+                Ref: JobsTable
+          Period: 300
+          Stat: Sum
+        ReturnData: false
+      - Id: writes
+        MetricStat:
+          Metric:
+            Namespace: AWS/DynamoDB
+            MetricName: WriteThrottleEvents
+            Dimensions:
+            - Name: TableName
+              Value:
+                Ref: JobsTable
+          Period: 300
+          Stat: Sum
+        ReturnData: false
+      - Id: total
+        Expression: SUM([reads,writes])
+        Label: DynamoDB throttle events
+        ReturnData: true
+  OperationalFailuresAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+    - AlertTopicPolicy
+    Properties:
+      AlarmDescription: A handled provider/configuration failure or infrastructure retry occurred. Inspect operationalFailure=1
+        logs; expected content failures are excluded. See docs/monitoring.md in the release.
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - Ref: AlertTopic
+      OKActions:
+      - Ref: AlertTopic
+      Namespace:
+        Fn::Sub: KaraokeKonverter/${AWS::StackName}
+      MetricName: OperationalFailures
+      Period: 300
+      Statistic: Sum
+  AvailabilityAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+    - AlertTopicPolicy
+    Properties:
+      AlarmDescription: Website/health checks failed or stopped reporting in two of three five-minute periods. Allow
+        initial metric warm-up after first deployment; this does not test music providers. See docs/monitoring.md
+        in the release.
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+      - Ref: AlertTopic
+      OKActions:
+      - Ref: AlertTopic
+      Namespace:
+        Fn::Sub: KaraokeKonverter/${AWS::StackName}
+      MetricName: AvailabilityFailures
+      Period: 300
+      Statistic: Maximum
+  MonitoringTestAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+    - AlertTopicPolicy
+    Properties:
+      AlarmDescription: CONTROLLED MONITORING TEST. This alarm does not indicate a conversion outage. The test script
+        sends a reset sample after verifying ALARM. See docs/monitoring.md in the release.
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+      - Ref: AlertTopic
+      OKActions:
+      - Ref: AlertTopic
+      Namespace:
+        Fn::Sub: KaraokeKonverter/${AWS::StackName}
+      MetricName: MonitoringTestFailures
+      Period: 60
+      Statistic: Maximum
+  MonitoringDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName:
+        Fn::Sub: ${AWS::StackName}-operations
+      DashboardBody:
+        Fn::Sub: '{"widgets":[{"type":"text","x":0,"y":0,"width":24,"height":3,"properties":{"markdown":"# KaraokeKonverter
+          operations\nPublic SoundCloud + Spotify \u2022 maximum 20 tracks \u2022 Ohio. Logs retained 14 days. Use
+          release **docs/monitoring.md** for investigation and recovery. Metrics start after this update; counts are
+          operational telemetry, not exactly-once accounting. Availability checks website/configuration only; live
+          conversions cover provider behavior."}},{"type":"alarm","x":0,"y":3,"width":24,"height":4,"properties":{"title":"Alarms
+          \u2014 includes isolated monitoring test","alarms":["${DeadLetterAlarm.Arn}","${WorkerErrorsAlarm.Arn}","${ApiErrorsAlarm.Arn}","${ApiServerErrorsAlarm.Arn}","${LambdaThrottlesAlarm.Arn}","${QueueAgeAlarm.Arn}","${DatabaseThrottlesAlarm.Arn}","${OperationalFailuresAlarm.Arn}","${AvailabilityAlarm.Arn}","${MonitoringTestAlarm.Arn}"],"sortBy":"stateUpdatedTimestamp"}},{"type":"metric","x":0,"y":7,"width":12,"height":6,"properties":{"title":"Conversion
+          outcomes (expected failures included)","region":"${AWS::Region}","view":"timeSeries","period":300,"stat":"Sum","metrics":[["KaraokeKonverter/${AWS::StackName}","CompletedJobs"],["KaraokeKonverter/${AWS::StackName}","PartialJobs"],["KaraokeKonverter/${AWS::StackName}","FailedJobs"]]}},{"type":"metric","x":12,"y":7,"width":12,"height":6,"properties":{"title":"Track
+          matching \u2014 confirmed reads only","region":"${AWS::Region}","view":"timeSeries","period":300,"stat":"Sum","metrics":[["KaraokeKonverter/${AWS::StackName}","SourceTracks",{"id":"tracks"}],["KaraokeKonverter/${AWS::StackName}","MatchedTracks",{"id":"matched"}],[{"expression":"IF(tracks>0,100*matched/tracks)","id":"rate","label":"Match
+          percentage","yAxis":"right"}]],"yAxis":{"right":{"min":0,"max":100}}}},{"type":"metric","x":0,"y":13,"width":12,"height":6,"properties":{"title":"Conversion
+          duration (ms)","region":"${AWS::Region}","view":"timeSeries","period":300,"stat":"Sum","metrics":[["KaraokeKonverter/${AWS::StackName}","JobDurationMs",{"stat":"Average"}],["KaraokeKonverter/${AWS::StackName}","JobDurationMs",{"stat":"Maximum"}]]}},{"type":"metric","x":12,"y":13,"width":12,"height":6,"properties":{"title":"Time
+          from submission to claimed delivery (ms)","region":"${AWS::Region}","view":"timeSeries","period":300,"stat":"Sum","metrics":[["KaraokeKonverter/${AWS::StackName}","QueueWaitMs",{"stat":"Average"}],["KaraokeKonverter/${AWS::StackName}","QueueWaitMs",{"stat":"Maximum"}]]}},{"type":"metric","x":0,"y":19,"width":12,"height":6,"properties":{"title":"HTTP
+          API traffic and errors","region":"${AWS::Region}","view":"timeSeries","period":300,"stat":"Sum","metrics":[["AWS/ApiGateway","Count","ApiId","${HttpApi}"],["AWS/ApiGateway","4xx","ApiId","${HttpApi}"],["AWS/ApiGateway","5xx","ApiId","${HttpApi}"]]}},{"type":"metric","x":12,"y":19,"width":12,"height":6,"properties":{"title":"HTTP
+          API latency (ms)","region":"${AWS::Region}","view":"timeSeries","period":300,"stat":"Sum","metrics":[["AWS/ApiGateway","Latency","ApiId","${HttpApi}",{"stat":"p95"}],["AWS/ApiGateway","IntegrationLatency","ApiId","${HttpApi}",{"stat":"p95"}]]}},{"type":"metric","x":0,"y":25,"width":12,"height":6,"properties":{"title":"Lambda
+          errors and throttles","region":"${AWS::Region}","view":"timeSeries","period":300,"stat":"Sum","metrics":[["AWS/Lambda","Errors","FunctionName","${ApiFunction}",{"label":"ApiFunction
+          Errors"}],["AWS/Lambda","Throttles","FunctionName","${ApiFunction}",{"label":"ApiFunction Throttles"}],["AWS/Lambda","Errors","FunctionName","${WorkerFunction}",{"label":"WorkerFunction
+          Errors"}],["AWS/Lambda","Throttles","FunctionName","${WorkerFunction}",{"label":"WorkerFunction Throttles"}],["AWS/Lambda","Errors","FunctionName","${AvailabilityFunction}",{"label":"AvailabilityFunction
+          Errors"}],["AWS/Lambda","Throttles","FunctionName","${AvailabilityFunction}",{"label":"AvailabilityFunction
+          Throttles"}]]}},{"type":"metric","x":12,"y":25,"width":12,"height":6,"properties":{"title":"Lambda duration
+          (ms)","region":"${AWS::Region}","view":"timeSeries","period":300,"stat":"Sum","metrics":[["AWS/Lambda","Duration","FunctionName","${ApiFunction}",{"stat":"Maximum","label":"ApiFunction"}],["AWS/Lambda","Duration","FunctionName","${WorkerFunction}",{"stat":"Maximum","label":"WorkerFunction"}],["AWS/Lambda","Duration","FunctionName","${AvailabilityFunction}",{"stat":"Maximum","label":"AvailabilityFunction"}]]}},{"type":"metric","x":0,"y":31,"width":12,"height":6,"properties":{"title":"Queue
+          depth \u2014 visible, in-flight and dead letters","region":"${AWS::Region}","view":"timeSeries","period":300,"stat":"Sum","metrics":[["AWS/SQS","ApproximateNumberOfMessagesVisible","QueueName","${JobsQueue.QueueName}",{"stat":"Maximum","label":"Queued"}],["AWS/SQS","ApproximateNumberOfMessagesNotVisible","QueueName","${JobsQueue.QueueName}",{"stat":"Maximum","label":"In-flight
+          / awaiting retry"}],["AWS/SQS","ApproximateNumberOfMessagesVisible","QueueName","${DeadLetterQueue.QueueName}",{"stat":"Maximum","label":"Dead
+          letters"}]]}},{"type":"metric","x":12,"y":31,"width":12,"height":6,"properties":{"title":"Oldest visible
+          queued message (seconds)","region":"${AWS::Region}","view":"timeSeries","period":300,"stat":"Sum","metrics":[["AWS/SQS","ApproximateAgeOfOldestMessage","QueueName","${JobsQueue.QueueName}",{"stat":"Maximum"}]],"annotations":{"horizontal":[{"label":"Alert
+          threshold","value":600}]}}},{"type":"metric","x":0,"y":37,"width":12,"height":6,"properties":{"title":"DynamoDB
+          throttles and consumed capacity","region":"${AWS::Region}","view":"timeSeries","period":300,"stat":"Sum","metrics":[["AWS/DynamoDB","ReadThrottleEvents","TableName","${JobsTable}"],["AWS/DynamoDB","WriteThrottleEvents","TableName","${JobsTable}"],["AWS/DynamoDB","ConsumedReadCapacityUnits","TableName","${JobsTable}"],["AWS/DynamoDB","ConsumedWriteCapacityUnits","TableName","${JobsTable}"]]}},{"type":"metric","x":12,"y":37,"width":12,"height":6,"properties":{"title":"CloudFront
+          traffic and 5xx rate (global metrics)","region":"us-east-1","view":"timeSeries","period":300,"stat":"Sum","metrics":[["AWS/CloudFront","Requests","DistributionId","${Website}","Region","Global",{"region":"us-east-1","stat":"Sum","yAxis":"left"}],["AWS/CloudFront","5xxErrorRate","DistributionId","${Website}","Region","Global",{"region":"us-east-1","stat":"Average","yAxis":"right"}]]}},{"type":"metric","x":0,"y":43,"width":12,"height":6,"properties":{"title":"Availability
+          \u2014 0 healthy, 1 failed; gaps matter","region":"${AWS::Region}","view":"timeSeries","period":300,"stat":"Sum","metrics":[["KaraokeKonverter/${AWS::StackName}","AvailabilityFailures",{"stat":"Maximum"}]],"yAxis":{"left":{"min":0,"max":1}}}},{"type":"metric","x":12,"y":43,"width":12,"height":6,"properties":{"title":"Handled
+          operational failures","region":"${AWS::Region}","view":"timeSeries","period":300,"stat":"Sum","metrics":[["KaraokeKonverter/${AWS::StackName}","OperationalFailures"]]}},{"type":"metric","x":0,"y":49,"width":12,"height":6,"properties":{"title":"Notification
+          delivery and scheduled invocation failures","region":"${AWS::Region}","view":"timeSeries","period":300,"stat":"Sum","metrics":[["AWS/SNS","NumberOfNotificationsFailed","TopicName","${AlertTopic.TopicName}"],["AWS/Events","FailedInvocations","RuleName","${AvailabilitySchedule}"]]}},{"type":"metric","x":12,"y":49,"width":12,"height":6,"properties":{"title":"Isolated
+          monitoring test \u2014 1 alarm, 0 reset","region":"${AWS::Region}","view":"timeSeries","period":300,"stat":"Sum","metrics":[["KaraokeKonverter/${AWS::StackName}","MonitoringTestFailures",{"stat":"Maximum"}]]}}]}'
+  OperationalFailuresQuery:
+    Type: AWS::Logs::QueryDefinition
+    Properties:
+      Name:
+        Fn::Sub: ${AWS::StackName}/operational-failures
+      LogGroupNames:
+      - Ref: ApiLogs
+      - Ref: WorkerLogs
+      QueryString: 'fields @timestamp, component, event, source, jobId, requestId, messageId, code, errorType, status
+  
+        | filter operationalFailure = 1
+  
+        | sort @timestamp desc
+  
+        | limit 100'
+  ConversionOutcomesQuery:
+    Type: AWS::Logs::QueryDefinition
+    Properties:
+      Name:
+        Fn::Sub: ${AWS::StackName}/conversion-outcomes
+      LogGroupNames:
+      - Ref: WorkerLogs
+      QueryString: 'filter outcome = 1
+  
+        | stats sum(completedJobs) as complete, sum(partialJobs) as partial, sum(failedJobs) as failed, sum(operationalFailure)
+        as operational, avg(elapsedMs) as averageMs by source'
+  JobTraceQuery:
+    Type: AWS::Logs::QueryDefinition
+    Properties:
+      Name:
+        Fn::Sub: ${AWS::StackName}/job-trace
+      LogGroupNames:
+      - Ref: ApiLogs
+      - Ref: WorkerLogs
+      QueryString: 'fields @timestamp, event, jobId, requestId, messageId, source, stage, code, elapsedMs, queueWaitMs,
+        receiveCount
+  
+        | filter ispresent(jobId)
+  
+        | sort @timestamp desc
+  
+        | limit 200'
+
+Outputs:
+  ApiAccessLogGroup: {Value: !Ref ApiAccessLogs}
+  WebsiteUrl: {Value: !Sub 'https://${Website.DomainName}'}
+  WebsiteBucket: {Value: !Ref WebsiteBucket}
+  DistributionId: {Value: !Ref Website}
+  ApiUrl: {Value: !GetAtt HttpApi.ApiEndpoint}
+  ConfigurationSecretArn: {Value: !Ref AppConfig}
+  JobsTableName: {Value: !Ref JobsTable}
+  WorkerLogGroup: {Value: !Ref WorkerLogs}
+  AlertTopicArn: {Value: !Ref AlertTopic}
+  MonitoringDashboardName:
+    Value:
+      Ref: MonitoringDashboard
+  MonitoringDashboardUrl:
+    Value:
+      Fn::Sub: https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${MonitoringDashboard}
+  MonitoringNamespace:
+    Value:
+      Fn::Sub: KaraokeKonverter/${AWS::StackName}
+  MonitoringFunctionName:
+    Value:
+      Ref: AvailabilityFunction
+  MonitoringLogGroup:
+    Value:
+      Ref: AvailabilityLogs
+  MonitoringTestAlarmName:
+    Value:
+      Ref: MonitoringTestAlarm
+  MonitoringAlarmNames:
+    Value:
+      Fn::Join:
+      - ','
+      - - Ref: DeadLetterAlarm
+        - Ref: WorkerErrorsAlarm
+        - Ref: ApiErrorsAlarm
+        - Ref: ApiServerErrorsAlarm
+        - Ref: LambdaThrottlesAlarm
+        - Ref: QueueAgeAlarm
+        - Ref: DatabaseThrottlesAlarm
+        - Ref: OperationalFailuresAlarm
+        - Ref: AvailabilityAlarm
+        - Ref: MonitoringTestAlarm
+  ApiLogGroup:
+    Value:
+      Ref: ApiLogs
+  JobsQueueUrl:
+    Value:
+      Ref: JobsQueue
+  DeadLetterQueueUrl:
+    Value:
+      Ref: DeadLetterQueue

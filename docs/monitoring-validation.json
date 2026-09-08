@@ -1,0 +1,31 @@
+{
+  "customMetricSeries": 10,
+  "metricFilters": 11,
+  "alarms": 10,
+  "alarmMetricReferences": 13,
+  "dashboardMetricSeries": 36,
+  "dashboardWidgets": 18,
+  "existingResourcesPreserved": true,
+  "unchangedApplicationDependencies": true,
+  "version": "0.3.0",
+  "date": "2026-09-08",
+  "javascriptTests": {
+    "passed": 76,
+    "failed": 0
+  },
+  "pythonCliTests": {
+    "passed": 5,
+    "failed": 0
+  },
+  "syntaxAndCommonCredentialChecks": "passed",
+  "samLint": "passed",
+  "availabilityLambdaSamBuild": "passed offline; no dependencies",
+  "productionArchiveImports": "passed with existing installed dependencies",
+  "fullCleanApplicationSamBuild": "Owner reports a successful full CloudShell build; not rerun with clean dependencies in the preparation environment",
+  "liveMonitoringDeployment": "Owner reports UPDATE_COMPLETE",
+  "metricFilterAlarmAndSnsExercise": "Owner reports monitoring commands passed; controlled test/reset visible in supplied dashboard screenshots",
+  "emailReceipt": "Owner confirmed both controlled ALARM and OK emails received",
+  "ownerReportedBaseline": "Both sources working on AWS; populated metrics show 14 read / 13 matched in the displayed sample",
+  "evidenceSummary": "evidence/monitoring-acceptance.md",
+  "githubHostedCi": "Pending first publication/run"
+}

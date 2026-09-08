@@ -1,0 +1,38 @@
+{
+  "name": "karaokekonverter-clean",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "src/"
+  ],
+  "description": "Public SoundCloud and Spotify playlist conversion to YouTube karaoke, locally and on AWS.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Chris-57/karaokekonverter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Chris-57/karaokekonverter/issues"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node local/server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/check.mjs",
+    "check:public": "node scripts/check-public-repo.mjs",
+    "setup": "node scripts/setup-local.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "3.1127.0",
+    "@aws-sdk/client-secrets-manager": "3.1127.0",
+    "@aws-sdk/client-sqs": "3.1127.0",
+    "@aws-sdk/lib-dynamodb": "3.1127.0",
+    "@sparticuz/chromium": "149.0.0",
+    "puppeteer-core": "25.1.0"
+  },
+  "devDependencies": {
+    "linkedom": "0.18.13"
+  }
+}

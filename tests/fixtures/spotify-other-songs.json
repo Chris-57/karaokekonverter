@@ -1,0 +1,56 @@
+{
+  "title": "Other Songs",
+  "declaredCount": 6,
+  "tracks": [
+    {
+      "position": 1,
+      "title": "Robbery",
+      "artists": [
+        "Juice WRLD"
+      ],
+      "url": "https://open.spotify.com/track/6Hj9jySrnFppAI0sEMCZpJ"
+    },
+    {
+      "position": 2,
+      "title": "Noticed",
+      "artists": [
+        "Lil Mosey"
+      ],
+      "url": "https://open.spotify.com/track/7zLYKWcXnYeHHWidalz7rj"
+    },
+    {
+      "position": 3,
+      "title": "Pure Water (with Migos)",
+      "artists": [
+        "Mustard",
+        "Migos"
+      ],
+      "url": "https://open.spotify.com/track/3j84U36KvLeXNDPv4t5pI8"
+    },
+    {
+      "position": 4,
+      "title": "Freddy Krueger (feat. Tee Grizzley)",
+      "artists": [
+        "YNW Melly",
+        "Tee Grizzley"
+      ],
+      "url": "https://open.spotify.com/track/0hwkukpHcBJfGcIUxi1tK2"
+    },
+    {
+      "position": 5,
+      "title": "Ransom",
+      "artists": [
+        "Lil Tecca"
+      ],
+      "url": "https://open.spotify.com/track/1kBbgxAUc4HQv7cgIayIDH"
+    },
+    {
+      "position": 6,
+      "title": "can't leave without it",
+      "artists": [
+        "21 Savage"
+      ],
+      "url": "https://open.spotify.com/track/0hPLZrnDgtKxrym1BHjDhd"
+    }
+  ]
+}
