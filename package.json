@@ -30,7 +30,7 @@
     "@aws-sdk/client-sqs": "3.1127.0",
     "@aws-sdk/lib-dynamodb": "3.1127.0",
     "@sparticuz/chromium": "149.0.0",
-    "puppeteer-core": "25.1.0"
+    "puppeteer-core": "25.10.0"
   },
   "devDependencies": {
     "linkedom": "0.18.13"
