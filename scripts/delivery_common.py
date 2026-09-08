@@ -84,7 +84,10 @@ class Aws:
     def get_blob(self, bucket, key):
         with tempfile.TemporaryDirectory(prefix="karaoke-object-") as directory:
             path = Path(directory) / "object"
-            self.call("s3api", "get-object", {"Bucket": bucket, "Key": key}, [str(path)])
+            # This streaming-output command does not support --cli-input-json.
+            # Pass required options explicitly and keep its outfile positional.
+            self.call("s3api", "get-object", extra=[
+                "--bucket", bucket, "--key", key, str(path)])
             return path.read_bytes()
 
     def put_blob(self, bucket, key, data, content_type="application/json", create_only=False):

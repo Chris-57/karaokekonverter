@@ -55,6 +55,7 @@ A failed run may leave an incomplete prefix. Do not label it successful or creat
 | Error | Correction |
 | --- | --- |
 | Deploy is skipped | Check `AWS_DEPLOY_ENABLED=true`, selected branch `main`, and that the triggering CI event was a successful push on this repository's current main. PR runs never deploy. |
+| `s3api get-object` says `--bucket, --key` are required | Apply the [S3 deployment fix](evidence/deployment-s3-fix.md), push it to main and use the new deployment triggered after CI. The original helper incorrectly supplied these options through JSON. The first observed run stopped during its baseline download, before an app update; recreating resources or changing IAM does not correct the CLI syntax. |
 | `AssumeRoleWithWebIdentity` denied | Check the role variable, provider audience and exact numeric-ID subject in the generated trust policy. Do not replace it with a wildcard. |
 | Change-set action denied | Check the failing action/resource against the generated policy and the expected delivery role; keep the scope on this app. Supply the first error for review. |
 | Resource/IAM/query change rejected | Inspect the proposed change set. Use a separately reviewed operator update for that change; do not disable the guard to force the deploy. |

@@ -167,11 +167,15 @@ class ChangeSetTests(unittest.TestCase):
             common.wait_stack_update(aws, self.stack["StackName"], self.stack["LastUpdatedTime"], sleep=lambda _: None)
 
     @patch("scripts.deploy_aws.wait_change_set", return_value=None)
-    def test_empty_change_set_still_returns_to_website_publication(self, _):
+    @patch("scripts.deploy_aws.summary")
+    def test_empty_change_set_still_returns_to_website_publication(self, status, _):
         aws = FakeAws([{}, {"Stacks": [self.stack]}, {}])
         deploy.update_stack(aws, self.stack, self.resources, "role", "bucket", {
             "releaseId": "run-123-1", "template": {"key": "releases/run-123-1/template.json"}}, lambda: True)
         self.assertEqual([call[1] for call in aws.calls], ["create-change-set", "describe-stacks", "delete-change-set"])
+        # A simulated change set must not write into the real Actions job summary.
+        status.assert_called_once_with(
+            "CloudFormation found no resource changes; website publication and verification will still run.")
 
     @patch("scripts.deploy_aws.wait_change_set", return_value={"Changes": []})
     def test_main_advancing_stops_before_changeset_execution(self, _):
@@ -299,6 +303,45 @@ class HealthAndTransportTests(unittest.TestCase):
         self.assertEqual(common.Aws("us-east-2").call("s3api", "head-object", payload), {"ok": True})
         self.assertNotIn("shell", run.call_args.kwargs)
         self.assertIn(json.dumps(payload), run.call_args.args[0])
+
+    @patch("scripts.delivery_common.subprocess.run")
+    def test_download_uses_streaming_cli_options_and_preserves_bytes(self, run):
+        body = b"\x00\xff\r\nexample\n"
+        key = "releases/run-123-1/site/literal $(text) `text`.html"
+        destinations = []
+
+        def download(command, **kwargs):
+            # get-object requires these CLI options even though other operations
+            # accept their modeled inputs through --cli-input-json.
+            self.assertNotIn("--cli-input-json", command)
+            self.assertEqual(command[command.index("--bucket") + 1], "example-site")
+            self.assertEqual(command[command.index("--key") + 1], key)
+            self.assertNotIn("shell", kwargs)
+            destination = Path(command[-1])
+            destinations.append(destination)
+            destination.write_bytes(body)
+            return subprocess.CompletedProcess(command, 0, json.dumps({"ContentLength": len(body)}), '')
+
+        run.side_effect = download
+        self.assertEqual(common.Aws("us-east-2").get_blob("example-site", key), body)
+        self.assertEqual(len(destinations), 1)
+        self.assertFalse(destinations[0].parent.exists())
+
+    @patch("scripts.delivery_common.subprocess.run")
+    def test_download_failure_keeps_cli_error_and_cleans_temporary_file(self, run):
+        destinations = []
+
+        def reject(command, **kwargs):
+            destination = Path(command[-1])
+            destinations.append(destination)
+            destination.write_bytes(b"incomplete")
+            return subprocess.CompletedProcess(command, 254, '', 'NoSuchKey: object not found')
+
+        run.side_effect = reject
+        with self.assertRaisesRegex(common.DeliveryError, "AWS s3api get-object failed:.*NoSuchKey"):
+            common.Aws("us-east-2").get_blob("example-site", "missing.html")
+        self.assertEqual(len(destinations), 1)
+        self.assertFalse(destinations[0].parent.exists())
 
     def test_workflow_pins_actions_and_never_cancels_a_running_deployment(self):
         text = (common.ROOT / ".github/workflows/deploy.yml").read_text()
