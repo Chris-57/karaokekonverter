@@ -2,11 +2,11 @@
 
 [![CI](https://github.com/Chris-57/karaokekonverter/actions/workflows/ci.yml/badge.svg)](https://github.com/Chris-57/karaokekonverter/actions/workflows/ci.yml)
 
-Turn a public **SoundCloud or Spotify playlist** into an ordered set of YouTube karaoke matches. Built by [Christopher Meumann](https://github.com/Chris-57) as an AWS application and infrastructure-operations portfolio project, rebuilding an earlier school project.
+I designed KaraokeKonverter to turn a public **SoundCloud or Spotify playlist** into an ordered set of YouTube karaoke matches. I am [Christopher Meumann](https://github.com/Chris-57), and I rebuilt an earlier school project into this AWS application to demonstrate application design, cloud deployment and operations.
 
 **[Open the AWS demo](https://d2j5ofy3dzbrbx.cloudfront.net) · [Try the demo](docs/demo.md) · [Architecture](docs/architecture.md) · [Test evidence](docs/validation.md) · [Operations](docs/monitoring.md) · [Deployment](docs/deployment-automation.md)**
 
-The hosted demo requires an application access code supplied privately by the owner. Visitors do not supply a YouTube key or sign into a music service. Public playlists are limited to **20 tracks**. The owner's backend uses YouTube Data API v3 for search; the deployed SoundCloud and Spotify readers extract public-page metadata with Chromium. Spotify Web API/OAuth integration is not implemented.
+The hosted demo requires an application access code that I share privately. Visitors do not supply a YouTube key or sign into a music service. Public playlists are limited to **20 tracks**. The backend uses YouTube Data API v3 for search; the deployed SoundCloud and Spotify readers extract public-page metadata with Chromium. Spotify Web API/OAuth integration is not implemented.
 
 ## What it does
 
@@ -47,9 +47,9 @@ Secrets Manager supplies server configuration. Structured logs, CloudWatch metri
 
 ## Current evidence
 
-Application version **0.3.0** is deployed in AWS Ohio. The owner has verified live conversions for both sources and received the controlled **ALARM and OK** emails. Dashboard screenshots show application metrics, 14 source tracks / 13 matches in the displayed sample, and all ten alarms in OK. These observations are sample acceptance evidence, not an availability or accuracy guarantee.
+Application version **0.3.0** is deployed in AWS Ohio. I tested live conversions for both sources and received the controlled **ALARM and OK** emails. Dashboard screenshots show application metrics, 14 source tracks / 13 matches in the displayed sample, and all ten alarms in OK. These observations are sample acceptance evidence, not an availability or accuracy guarantee.
 
-The source contains **80 JavaScript tests** and Python tests for monitoring, deployment permissions and release recovery. The owner supplied passing GitHub CI runs. A separate OIDC deployment workflow is now included; its IAM bootstrap, first deployment and restore exercise remain owner-run acceptance. It stays disabled until its repository variables are configured. See [validation](docs/validation.md), [CI](docs/ci.md) and [deployment acceptance](docs/evidence/deployment-acceptance.md) for the precise scope.
+The source contains **80 JavaScript tests** and Python tests for monitoring, deployment permissions and release recovery. My GitHub CI runs passed, and the delivery bootstrap, temporary OIDC credentials and baseline snapshot checks have worked in AWS. The latest release stopped at the IAM guard before updating the app. Routine releases now preserve the deployed infrastructure while updating the three Lambda code packages and website files. This correction passed 52 local Python tests and full-template validation; a verified live automated release and restore remain outstanding. See [the correction](docs/apply-deployment-fix.md), [validation](docs/validation.md) and [deployment acceptance](docs/evidence/deployment-acceptance.md).
 
 ## Run locally
 
@@ -80,18 +80,19 @@ The public-repository check needs Node only; it also inspects the Git index when
 | Document | What to look for |
 | --- | --- |
 | [Demo guide](docs/demo.md) | Hosted demo steps and reviewer access |
+| [My design decisions](docs/design-decisions.md) | Why I chose this architecture and what I learned |
 | [Architecture](docs/architecture.md) | API contract, data flow, job handling and service boundaries |
 | [Monitoring runbook](docs/monitoring.md) | Dashboard, alarm thresholds, notification test and incident response |
-| [Validation record](docs/validation.md) | Automated checks, owner-provided live evidence and remaining checks |
+| [Validation record](docs/validation.md) | Automated checks, my live observations and remaining checks |
 | [CI workflow](docs/ci.md) | Triggers, permissions, pinned tools and build verification |
-| [Deployment automation](docs/deployment-automation.md) | GitHub OIDC, separate IAM bootstrap, release publication and first-run setup |
+| [Deployment automation](docs/deployment-automation.md) | GitHub OIDC, application-only releases and separate infrastructure updates |
 | [Deployment recovery](docs/deployment-recovery.md) | Restore verified code/assets and handle interrupted deployments |
 | [AWS deployment](docs/aws-deployment.md) | Existing-stack updates, first installs and website publishing |
 | [Operations runbook](docs/runbook.md) | Troubleshooting, recovery and resource retirement |
 | [Security and credentials](SECURITY.md) | Configuration boundaries and safe issue reporting |
 | [Roadmap](docs/roadmap.md) | OIDC deployment automation and future work |
 | [Publishing guide](docs/github-publishing.md) | First publication under Chris-57 |
-| [Changelog](CHANGELOG.md) | Reconstructed release history |
+| [Changelog](CHANGELOG.md) | Release history and fixes |
 
 ## Limits and provider access
 
@@ -99,6 +100,6 @@ Public-page readers depend on the metadata a provider exposes. Login requirement
 
 Spotify's [User Guidelines](https://www.spotify.com/us/legal/user-guidelines/) restrict scraping. This browser adapter is a controlled portfolio demonstration, not an approved Spotify integration; a supported access approach is required before broad public-service use. An optional official SoundCloud API adapter is included for operators with SoundCloud app credentials. [Architecture decisions](docs/architecture.md) explain these boundaries.
 
-The hosted demo uses the owner's AWS resources and YouTube quota. The 20-track limit, access code, throttling and queue controls bound parts of that usage; budget emails are notifications, not a spending cap. [Monitoring costs](docs/monitoring.md#costs-and-retention) document the current footprint.
+The hosted demo uses my AWS resources and YouTube quota. The 20-track limit, access code, throttling and queue controls bound parts of that usage; budget emails are notifications, not a spending cap. [Monitoring costs](docs/monitoring.md#costs-and-retention) document the current footprint.
 
 Source is published for portfolio review. No additional open-source license has been selected. Third-party dependencies retain their respective licenses.

@@ -2,13 +2,13 @@
 
 Application: **KaraokeKonverter 0.3.0**, stack `karaokekonverter-dev`, region `us-east-2`.
 
-This is a transcription and interpretation of the owner's CloudShell output, dashboard screenshots and confirmation of inbox receipt supplied during the September 2026 acceptance session. It is not an automated report collected through authenticated AWS access. The screenshots show a three-hour UTC window with new job samples around 06:15; an exact calendar date for those chart samples was not supplied. Original account/console screenshots and email messages are not published here.
+I recorded these observations from my CloudShell output, dashboard screenshots and received emails during the September 2026 acceptance session. These are manual observations. The screenshots show a three-hour UTC window with new job samples around 06:15; this record does not establish the exact calendar date of those chart samples. I keep the original account screenshots and email messages outside the public repository.
 
 | Evidence | Observation | What it establishes |
 | --- | --- | --- |
-| Owner's deployment report | 76 JavaScript tests passed, SAM build succeeded and update completed | Owner-run build/deployment acceptance for 0.3.0 |
-| Owner's live application report | Both Spotify and SoundCloud links worked | Sample live acceptance for both source paths |
-| Owner's alert report | Controlled ALARM and OK emails both received | Notification and recovery messages reached the inbox for that test |
+| My deployment check | 76 JavaScript tests passed, SAM build succeeded and update completed | Live build/deployment acceptance for 0.3.0 |
+| My application check | Both Spotify and SoundCloud links worked | Sample live acceptance for both source paths |
+| My alert check | Controlled ALARM and OK emails both received | Notification and recovery messages reached the inbox for that test |
 | Alarm widget | All ten alarms displayed OK | Current alarm states at the screenshot time |
 | Track matching widget | 14 source tracks, 13 matches, about 92.9% in the displayed bucket | Live conversion log-to-metric reporting; at least one track was not added |
 | Outcomes widget | Partial-job sample at 1, failed-job sample at 0; coincident series may overlap | A partial result was recorded; exact per-source counts require the saved log query |
@@ -22,6 +22,6 @@ This is a transcription and interpretation of the owner's CloudShell output, das
 
 The dashboard aggregates both sources. It does not establish exact per-source outcomes from the screenshot alone. A 13/14 match sample is not a benchmark, and a partial result's cause should be read from the job. The small HTTP 4xx spike was not attributed to a particular request. No sustained load test, measured SLO, full provider-outage injection or live 20/21-track boundary exercise is claimed.
 
-The owner also listed ten legacy Lambda log groups with 137,873 stored bytes combined. Their storage is separate from CloudShell's home directory. They were left for a later retirement review; the active project log groups were kept.
+I also listed ten legacy Lambda log groups with 137,873 stored bytes combined. Their storage is separate from CloudShell's home directory. They were left for a later retirement review; the active project log groups were kept.
 
-The first GitHub-hosted CI result and OIDC deployment are subsequent milestones. [Validation](../validation.md) records current checks and remaining work; [monitoring](../monitoring.md) gives the procedures to reproduce the controlled alert test.
+Subsequent CI and deployment progress is tracked separately. [Validation](../validation.md) records current checks and remaining work; [monitoring](../monitoring.md) gives the procedures to reproduce the controlled alert test.

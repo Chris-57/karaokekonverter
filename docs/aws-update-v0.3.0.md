@@ -1,6 +1,6 @@
 # Monitoring update: version 0.3.0
 
-**Accepted on the owner's existing AWS stack.** The owner reported a successful build and completed update, verified monitoring commands, received controlled ALARM/OK emails and supplied populated dashboard screenshots. See [validation](validation.md) and [the monitoring evidence summary](evidence/monitoring-acceptance.md).
+**Accepted on my existing AWS stack.** I completed the build and update, verified the monitoring commands, received the controlled ALARM/OK emails and observed populated dashboard metrics. See [validation](validation.md) and [the monitoring evidence summary](evidence/monitoring-acceptance.md).
 
 This release added the dashboard, structured application/access logs, failure metrics, alarms, scheduled availability checks and an isolated notification test. SoundCloud and Spotify, the 20-song limit, provider dependencies, website assets, stored secrets, queues, table and the existing SNS subscription were retained.
 

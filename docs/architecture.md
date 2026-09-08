@@ -1,5 +1,7 @@
 # Architecture: local and AWS application
 
+I designed the application around a shared conversion workflow, with separate source adapters and an asynchronous AWS worker. [My design decisions](design-decisions.md) explain the rationale and tradeoffs; this document describes the implemented interfaces and resource boundaries.
+
 Application version 0.3.0; documentation refreshed for public repository preparation on September 8, 2026. This documents a new implementation reconstructed from a personal school project. It does not claim the original assignment used every component in this rebuild.
 
 ## Implemented request flow
@@ -18,7 +20,7 @@ flowchart TD
     Worker --> Jobs
 ```
 
-Browser code accesses job records through the API. The SoundCloud reader can use the existing browser mode or an owner-configured official API adapter. Spotify uses the DOM extraction and collection logic validated in the separate local probe. There is no Spotify API key or user OAuth flow in this local implementation.
+Browser code accesses job records through the API. The SoundCloud reader can use the existing browser mode or an operator-configured official API adapter. Spotify uses the DOM extraction and collection logic validated in the separate local probe. There is no Spotify API key or user OAuth flow in this local implementation.
 
 1. The website reads `/api/health` and obtains a local session token from `/api/session`.
 2. Local setup uses `POST /api/local/youtube` with a visible pasted key (or an empty body to test the current key). One real search must succeed before the key is saved. The active runtime is refreshed after saving. A server restart requires another explicit test, but page reloads do not. `POST /api/conversions` checks that session and the current verified state, validates the explicitly selected provider and URL, creates a job, and queues its ID. A mismatched provider/URL fails before creating a job.
@@ -30,11 +32,11 @@ Browser code accesses job records through the API. The SoundCloud reader can use
 8. Results are saved after each track. The final status is COMPLETE, PARTIAL or FAILED. Provider-wide search errors stop further calls and preserve earlier handled successes.
 9. The website displays source metadata, review links and a directly constructed temporary playback URL. The same URL appears in a read-only field with copying and a manual fallback.
 
-## Local access and owner configuration
+## Local access and configuration
 
-The startup entrypoint binds to `127.0.0.1`, detects Chrome/Edge, loads the owner's configuration and generates a new session token. The website obtains that token automatically; visitors to this local page do not type an access code. The server verifies its Host and Origin, rejects cross-site API requests and sends no permissive CORS headers. The session stays in browser memory and is never a provider credential.
+The startup entrypoint binds to `127.0.0.1`, detects Chrome/Edge, loads local configuration and generates a new session token. The website obtains that token automatically; visitors to this local page do not type an access code. The server verifies its Host and Origin, rejects cross-site API requests and sends no permissive CORS headers. The session stays in browser memory and is never a provider credential.
 
-The owner enters the YouTube key visibly in the local setup form; the server sends it to Google in an API-key header. Conversion and setup status responses never return the saved key. Setup saves it in the user's application-configuration directory, outside the project. The saved YouTube key takes precedence over environment and `.env` values so a tested replacement survives an old shell setting. Other settings retain their existing environment-first precedence. The local settings file is plaintext configuration, not a remote secret vault. Neither it nor credentials belong in the release archive or source control.
+The local operator enters the YouTube key visibly in the local setup form; the server sends it to Google in an API-key header. Conversion and setup status responses never return the saved key. Setup saves it in the user's application-configuration directory, outside the project. The saved YouTube key takes precedence over environment and `.env` values so a tested replacement survives an old shell setting. Other settings retain their existing environment-first precedence. The local settings file is plaintext configuration, not a remote secret vault. Neither it nor credentials belong in the release archive or source control.
 
 The session and key-setup endpoints are local-only. Setup is serialized and cannot change credentials during an active job. Failed verification or disk writes leave the prior saved key untouched. Conversion readiness is revoked after a later YouTube error, while existing job results remain readable. The AWS API handler has no `/api/session` implementation and retains its configured access-code requirement. A public service will need deliberate usage controls and an authentication/access design; forwarding the local server through a tunnel is not that design.
 
@@ -67,11 +69,11 @@ Jobs contain UUID, source, source URL, optional app playlist name, source title,
 
 Each normalized track contains position, original title and an artist display string. Spotify tracks also retain their `artists` array and a reliable-credit marker for matching. Source positions preserve order; a repeated source song at a second position is a second item.
 
-A final result can contain MATCHED, UNMATCHED, ERROR and SKIPPED tracks. Failures from known adapters use bounded, sanitized messages. YouTube responses are mapped from known Google ErrorInfo/legacy reasons to local codes for invalid keys, disabled APIs, restrictions, quota, denial and availability. Raw Google error messages, project numbers and request URLs are not returned. All YouTube service failures stop further song searches; an API rejection is never relabeled NO_MATCHES. Logs contain job ID, source, status, counts and timings, without owner keys or source titles.
+A final result can contain MATCHED, UNMATCHED, ERROR and SKIPPED tracks. Failures from known adapters use bounded, sanitized messages. YouTube responses are mapped from known Google ErrorInfo/legacy reasons to local codes for invalid keys, disabled APIs, restrictions, quota, denial and availability. Raw Google error messages, project numbers and request URLs are not returned. All YouTube service failures stop further song searches; an API rejection is never relabeled NO_MATCHES. Logs contain job ID, source, status, counts and timings, without API keys or source titles.
 
 ## AWS deployment
 
-The retained SAM template defines CloudFront, a private S3 website bucket, API Gateway, an API Lambda, SQS, a worker Lambda, DynamoDB, Secrets Manager, IAM permissions, CloudWatch logs/alarms, an SNS topic and a dead-letter queue. The owner reports both sources working in the deployed AWS application. The owner also confirmed deployment of the 0.3.0 monitoring update, receipt of controlled ALARM/OK emails and populated dashboard metrics. [The evidence record](evidence/monitoring-acceptance.md) distinguishes these observations from unperformed load/fault tests.
+The retained SAM template defines CloudFront, a private S3 website bucket, API Gateway, an API Lambda, SQS, a worker Lambda, DynamoDB, Secrets Manager, IAM permissions, CloudWatch logs/alarms, an SNS topic and a dead-letter queue. I tested both sources successfully in the deployed AWS application. I also deployed the 0.3.0 monitoring update, received the controlled ALARM/OK emails and observed populated dashboard metrics. [The evidence record](evidence/monitoring-acceptance.md) distinguishes these observations from unperformed load/fault tests.
 
 The cloud queue/store replace the local serial queue and memory store while preserving the job contract. The account reports ten total concurrent Lambda executions. The template therefore leaves reserved concurrency unset and limits the SQS event-source mapping to two simultaneous workers. This is a queue-level limit, with no reserved capacity; other functions can still exhaust the shared account pool. Runtime dependencies are pinned. The API and worker share the same source configuration and 20-track cap. Browser readers use headless Chromium in Lambda; Spotify does not need a desktop executable path, signed-in browser profile or developer key. See `aws-update-v0.3.0.md`, `aws-acceptance.md` and `runbook.md`.
 

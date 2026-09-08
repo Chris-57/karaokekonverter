@@ -4,7 +4,7 @@ Historical release procedure. For current repository builds, use [AWS deployment
 
 Version 0.2.4 enables Spotify alongside SoundCloud in the AWS API and worker. It uses the existing access code, YouTube key, browser package, queue, table and website. Spotify reads public rendered metadata; there is no visitor Spotify login or Spotify developer credential to configure. The converter limit remains 20 songs.
 
-The owner has reported a successful SoundCloud conversion after the 0.2.3 correction. This release has controlled integration and build checks; its first live AWS Spotify conversion is still an acceptance step. See [the cloud test checklist](aws-acceptance.md).
+I completed a successful SoundCloud conversion after the 0.2.3 correction. This release has controlled integration and build checks; its first live AWS Spotify conversion is still an acceptance step. See [the cloud test checklist](aws-acceptance.md).
 
 ## 1. Upload and open this release
 
@@ -98,6 +98,6 @@ Spotify logs `source_playlist_read` with the displayed/collected counts on a suc
 
 ## Roll back code if necessary
 
-Keep the 0.2.3 ZIP as the previous owner-tested SoundCloud release. To return to that behavior, open its extracted project, build its template, and deploy to the same stack using the command above. Wait for `UPDATE_COMPLETE` and check health version `0.2.3`. Both Lambda code packages must be updated together. The current static frontend supports either health response. No stack deletion or editing stored job states is needed.
+Keep the 0.2.3 ZIP as the previous SoundCloud release I tested. To return to that behavior, open its extracted project, build its template, and deploy to the same stack using the command above. Wait for `UPDATE_COMPLETE` and check health version `0.2.3`. Both Lambda code packages must be updated together. The current static frontend supports either health response. No stack deletion or editing stored job states is needed.
 
 References: [AWS SAM deploy](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-deploy.html), [CloudWatch log retrieval](https://docs.aws.amazon.com/cli/latest/reference/logs/tail.html).

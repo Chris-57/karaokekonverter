@@ -1,6 +1,6 @@
 # Operations runbook
 
-Applies to `karaokekonverter-dev` with the 0.3.0 monitoring update. The owner reports both SoundCloud and Spotify working on AWS, populated dashboard metrics and controlled ALARM/OK email receipt. Follow [the update guide](aws-update-v0.3.0.md), [monitoring runbook](monitoring.md) and [live acceptance checklist](aws-acceptance.md) to record operational evidence. For the combined local app, use [local-runbook.md](local-runbook.md). The automatic local session endpoint is not part of the AWS deployment.
+Applies to `karaokekonverter-dev` with the 0.3.0 monitoring update. I verified both sources on AWS, observed populated dashboard metrics and received the controlled ALARM/OK emails. Follow [the update guide](aws-update-v0.3.0.md), [monitoring runbook](monitoring.md) and [live acceptance checklist](aws-acceptance.md) to record operational evidence. For the combined local app, use [local-runbook.md](local-runbook.md). The automatic local session endpoint is not part of the AWS deployment.
 
 ## Find the application
 
@@ -39,7 +39,7 @@ Local startup is `npm start`; local jobs disappear on restart. AWS jobs use Dyna
 
 ## Alarms and retries
 
-Version 0.3.0 defines ten alarms, including handled operational failures, API/worker errors, throttles, backlog age, dead letters, database throttles and failed/missing availability checks. The owner has confirmed the existing SNS email subscription. See [monitoring.md](monitoring.md) for thresholds, dashboard use, notification testing, costs and recovery. A confirmed subscription alone does not prove alarm delivery; run the isolated test and record inbox receipt.
+Version 0.3.0 defines ten alarms, including handled operational failures, API/worker errors, throttles, backlog age, dead letters, database throttles and failed/missing availability checks. I confirmed the existing SNS email subscription and tested delivery. See [monitoring.md](monitoring.md) for thresholds, dashboard use, notification testing, costs and recovery. A confirmed subscription alone does not prove alarm delivery; run the isolated test and record inbox receipt.
 
 SQS retries infrastructure failures and sends repeatedly failing messages to the DLQ. Before redriving, fix the cause and inspect the job state. A job already terminal or expired will not be processed by the claim operation. For a demo, submit a new small job after the fix. Preserve the failed job/logs as evidence rather than editing its state blindly. Add a supported retry endpoint before making operator state changes routine.
 
@@ -51,7 +51,7 @@ Watch queue depth/age, function duration/throttles/errors, terminal job counts, 
 2. For browser upgrades, update Puppeteer and Chromium as a compatible pair. Run `npm install` for the intended versions and commit the resulting lockfile.
 3. Run `npm test`, `npm run check`, `npm run check:public`, and `sam validate --lint --template-file infra/template.yaml --region us-east-2`.
 4. Run a small live playlist acceptance test in the development stack after deployment. Fixture tests cannot validate external DOM changes.
-5. For a code rollback, build and deploy the previously verified commit. Lambda aliases and automated rollback are not implemented in this baseline.
+5. For code recovery, use the deliberate [restore action](deployment-recovery.md) with a verified release or observed baseline. It restores compatible code and website files on current infrastructure. Lambda aliases and automatic rollback after failed website checks are not implemented.
 
 Rotate API keys in their issuing console, update the new stack's secret, and verify with one small job. This application only needs YouTube search access until OAuth playlist creation is implemented. SoundCloud API tokens are cached/refreshed within a warm process; cold starts obtain a new token. A durable shared token manager is future work if token-rate limits become relevant.
 

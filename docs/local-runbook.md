@@ -1,6 +1,6 @@
 # Local operations runbook
 
-Applies to KaraokeKonverter 0.3.0 on the owner's computer.
+Applies to KaraokeKonverter 0.3.0 on a local computer.
 
 ## Normal operation
 
@@ -46,7 +46,7 @@ Send the displayed error, approximate time, source, track count and job ID when 
 
 ## Update and rollback
 
-Stop the current server and extract each release into a separate folder. Install dependencies using `npm.cmd ci`; saved owner settings remain in the user profile. Start the desired release from its folder. This avoids mixing old interface files with a new backend. Keep the last working release for rollback.
+Stop the current server and extract each release into a separate folder. Install dependencies using `npm.cmd ci`; saved local settings remain in the user profile. Start the desired release from its folder. This avoids mixing old interface files with a new backend. Keep the last working release for rollback.
 
 No local procedure in this document creates or changes AWS resources.
 

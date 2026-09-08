@@ -1,25 +1,43 @@
 {
-  "preparedFor": "Chris-57/karaokekonverter",
+  "project": "Chris-57/karaokekonverter",
   "date": "2026-09-08",
   "applicationVersion": "0.3.0",
-  "status": "Prepared and checked offline; live bootstrap, OIDC deployment and restore remain owner-run acceptance.",
+  "status": "Bootstrap, OIDC and baseline snapshots observed in AWS. Latest run stopped at the IAM guard before execution. Application release correction validated locally; live deploy and restore pending.",
   "checks": {
-    "javascriptTests": {"passed": 80, "failed": 0, "skipped": 0},
-    "pythonTests": {"passed": 37, "failed": 0, "monitoringTests": 5, "deliveryTests": 32},
-    "sourceChecks": {"status": "passed", "files": 55},
-    "samApplicationLint": "passed using SAM 1.166.1 and cfn-lint 1.53.3",
-    "samBootstrapLint": "passed for the generated template with synthetic account/resource metadata",
-    "samVersionPinnedTemplateLint": "passed for the actual app template with synthetic S3 archive versions",
-    "workflowYaml": "both workflows parsed; action pins and deployment concurrency checked",
-    "publicRepositoryCheck": "passed; common credentials, private paths, index content and local Markdown links",
-    "runtimeScope": "Application source, website, app stack template and dependency locks unchanged. Package metadata/scripts remain the published preparation baseline."
+    "pythonTests": {
+      "passed": 52,
+      "failed": 0,
+      "cliIntegrationCasesNotRunLocally": 2,
+      "cliIntegrationReason": "AWS CLI v2 unavailable locally; both cases required on GitHub"
+    },
+    "javascriptTests": {
+      "passed": 80,
+      "when": "prior application/repository preparation; application and test sources unchanged by this correction"
+    },
+    "sourceContract": "LF-normalized SHA-256 matches the unchanged infra/template.yaml",
+    "processedTemplate": {
+      "resources": 56,
+      "changedFields": [
+        "ApiFunction.Properties.Code",
+        "WorkerFunction.Properties.Code",
+        "AvailabilityFunction.Properties.Code"
+      ],
+      "lint": "passed with SAM 1.166.1 / cfn-lint 1.53.3 and synthetic S3 versions"
+    },
+    "orchestration": "Deploy and restore entry points submit preserved infrastructure and tags using controlled AWS responses",
+    "runtimeScope": "Runtime source, website assets, SAM infrastructure source and dependency locks unchanged"
+  },
+  "liveEvidence": {
+    "runId": "34258887801",
+    "commit": "49d3c6b566e374b1918a875bc684d2b0df5f7a68",
+    "observedBaseline": "snapshot-34258887801-1",
+    "stoppedBeforeExecution": true,
+    "error": "ApiFunctionRole: IAM, secret and saved-query changes need an operator update."
   },
   "limitations": {
-    "dependencyInstall": "Local JavaScript tests reused the working release's installed dependencies; no new clean install or full SAM build is claimed for this update.",
-    "awsAuthorization": "Policies have not yet been exercised in the owner's AWS account.",
-    "cloudDeploymentAndRestore": "Pending first live runs and provider smoke tests.",
-    "providerRequests": 0,
-    "awsMutations": 0,
-    "githubMutations": 0
+    "freshProviderConversionsDuringLocalValidation": 0,
+    "awsMutationsDuringLocalValidation": 0,
+    "cleanBuildForThisCorrection": "Not rerun locally; GitHub CI performs the clean build before deployment",
+    "liveCorrectedDeploymentAndRestore": "Pending successful runs in my AWS account"
   }
 }

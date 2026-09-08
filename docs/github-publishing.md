@@ -29,7 +29,7 @@ After the first successful CI run, require its **Validate and build** status for
 
 Enable secret scanning/push protection and private vulnerability reporting. Public Actions logs are visible, so keep access codes, key values and personal screenshots out of commands, issues and workflow outputs. Dependabot will propose updates; no automatic merge or AWS deployment is enabled.
 
-No additional open-source license has been selected for this portfolio publication. A license can be chosen separately if the owner wants to grant reuse rights. [GitHub licensing guidance](https://docs.github.com/articles/licensing-a-repository).
+No additional open-source license has been selected for this portfolio publication. A license can be chosen separately if I decide to grant reuse rights. [GitHub licensing guidance](https://docs.github.com/articles/licensing-a-repository).
 
 ## What to share with a reviewer
 

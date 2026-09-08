@@ -1,19 +1,21 @@
 # AWS deployment automation
 
-This update prepares GitHub Actions to update the existing `karaokekonverter-dev` application in `us-east-2`. The owner has already supplied a passing CI result, a healthy application stack, both-source conversion results, and successful monitoring emails. **The new OIDC deployment and restore workflow still require their first live acceptance runs.** Local tests do not establish that AWS has accepted the new IAM policies.
+I designed this delivery workflow to release application code and website files to the existing `karaokekonverter-dev` stack in `us-east-2`. I have completed the delivery bootstrap and observed successful OIDC authentication and baseline snapshots. My latest run stopped at the IAM change guard before execution. **A fully verified automated release and a live restore remain outstanding.**
+
+For the existing setup, follow [Apply the application release correction](apply-deployment-fix.md). That update needs no additional IAM grant or bootstrap run. The initial setup procedure below is retained for reference.
 
 ## What is being connected
 
 | Component | Responsibility |
 | --- | --- |
 | [CI](../.github/workflows/ci.yml) | Unprivileged tests, lint and Lambda build on pushes/PRs |
-| [Deploy AWS](../.github/workflows/deploy.yml) | After a successful `main` push, build the selected commit, obtain temporary credentials, update the existing app, publish its website and verify it |
+| [Deploy AWS](../.github/workflows/deploy.yml) | After a successful `main` push, build the selected commit, obtain temporary credentials, update Lambda code, publish the website and verify it |
 | `karaokekonverter-dev-delivery` stack | Separate IAM roles, GitHub identity provider and private versioned release bucket |
 | `karaokekonverter-dev-github-deploy` role | Submit app change sets, store releases, publish three website assets and invalidate their CloudFront cache |
-| `karaokekonverter-dev-cloudformation` role | Update the app's existing resources with scoped permissions |
+| `karaokekonverter-dev-cloudformation` role | Execute the reviewed application change set with scoped permissions |
 | Existing Secrets Manager configuration | Continue storing the application's YouTube key and shared access code |
 
-The application stays at version **0.3.0**, with SoundCloud, Spotify and the 20-track cap. No static AWS key, YouTube key or demo access code is supplied to this workflow. Reviewers can read the public code and docs; Michael can use the website with the access code supplied privately by the owner. He needs no AWS credentials to use the hosted demo.
+The application stays at version **0.3.0**, with SoundCloud, Spotify and the 20-track cap. No static AWS key, YouTube key or demo access code is supplied to this workflow. Reviewers can read the public code and docs; Michael can use the website with the access code I share privately. He needs no AWS credentials to use the hosted demo.
 
 ## 1. Add these files to GitHub
 
@@ -81,7 +83,7 @@ Open **Repository → Settings → Secrets and variables → Actions → Variabl
 
 No GitHub environment is configured. Adding an `environment:` to the deployment job would change its OIDC subject and require a reviewed trust-policy update.
 
-The repository was created after July 15, 2026. Its trust subject therefore includes the numeric owner/repository IDs supplied by the owner:
+The repository was created after July 15, 2026. Its trust subject therefore includes the numeric owner/repository IDs recorded for my repository:
 
 ```text
 repo:Chris-57@124647261/karaokekonverter@1361537293:ref:refs/heads/main
@@ -98,9 +100,9 @@ The workflow:
 1. Checks repository/event identity and that the checkout is still the current `main` commit.
 2. Runs the public check, tests, syntax check, SAM lint/build and packaged-handler checks before AWS authentication.
 3. Obtains a two-hour temporary AWS session, checking the expected account. One deployment runs at a time; a newer push does not cancel an active CloudFormation update.
-4. Stores a snapshot of the existing template, Lambda archives and website assets. It marks that snapshot usable for restore only if the currently served website hashes and health contract match.
-5. Uploads the built Lambda packages under a release-specific prefix and pins their S3 object versions.
-6. Creates an **UPDATE** change set for the existing app. It rejects additions, removals, imports, replacements, and IAM/secret/saved-query modifications before executing it.
+4. Reads the deployed **Processed** template, packages the three built Lambdas, and pins the uploaded archives to S3 object versions. It checks that handler, runtime and architecture match the deployed functions.
+5. Captures the current template, Lambda archives and website assets. A snapshot becomes an allowed restore target only if the served website hashes and health contract match.
+6. Builds a release template by changing only the three Lambda `Code` locations in the deployed template. It preserves existing stack tags and parameter values when creating the **UPDATE** change set. It permits only in-place code updates for those functions and rejects IAM/secret/query changes, additions, removals and replacements before execution.
 7. Waits for the stack to finish, publishes JS/CSS followed by HTML and a release marker, invalidates the CloudFront paths and waits for propagation.
 8. Checks the served files' hashes, release marker and `/api/health`: expected version, both sources ready, access-code authentication and the 20-track cap. Only then does it mark the release verified.
 
@@ -118,14 +120,20 @@ Then follow the deliberate **restore** exercise in [deployment recovery](deploym
 
 Do not claim that delivery/restore is operational until these AWS runs have actually completed. To pause future deployments, set `AWS_DEPLOY_ENABLED=false`; allow any active CloudFormation update to finish before making other changes.
 
+## Infrastructure changes
+
+Application releases do not apply resource settings from a freshly SAM-transformed source template. The checked hash in [application-release.json](../infra/application-release.json) records the accepted `infra/template.yaml` source. An infrastructure source edit fails the contract test before AWS credentials in CI; the deployment script also checks it. This prevents an apparent successful application release from silently ignoring an infrastructure migration.
+
+To change resources, pause automated deployment and perform a separate reviewed operator update, accounting for the stack's existing service role. Verify that update in AWS before refreshing the source hash and committing both the source and contract. Do not refresh the hash merely to suppress a failing check. See [infrastructure recovery](deployment-recovery.md#future-infrastructure-changes-and-retirement).
+
 ## Permission and operational limits
 
-- CloudFormation's service role is attached to the app stack on its first executed automated update and remains associated with it. A later manual update also uses that role unless an authorized operator explicitly supplies another one. Do not delete the delivery stack/role while the app depends on it. [CloudFormation service-role behavior](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-servicerole.html).
-- This pipeline supports routine updates to existing resources. New resources, replacement changes, IAM policies, secret definitions and saved Logs Insights queries need a separate reviewed operator change and, where necessary, a generator/policy update. New properties on existing resources may also require additional scoped permissions. The failure is surfaced; the workflow does not grant itself more access.
+- The CloudFormation service role supplied for stack operations can remain associated with the app stack. Inspect `RoleARN` rather than assuming a rejected or interrupted deployment left that metadata empty. A later manual update also uses that role unless an authorized operator explicitly supplies another one. Do not delete the delivery stack/role while the app depends on it. [CloudFormation service-role behavior](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-servicerole.html).
+- This pipeline supports application code and website releases. Changes to runtime settings, resources, IAM policies, secret definitions or saved queries require a separate reviewed operator update and, where necessary, scoped policy changes. The workflow does not grant itself more access.
 - The GitHub role cannot directly read the configuration secret. However, an authorized code deployer can change what the application does using its existing runtime permissions. Protecting `main`, workflow files and maintainer access remains necessary.
 - Website assets use fixed filenames. Publishing them is not an atomic website switch; a brief mixed-version window is possible. The post-deploy check and saved release provide detection/recovery, not zero-downtime deployment.
-- Snapshots preserve code and website files, not DynamoDB job data or secret values. Restoring code does not reverse data writes or configuration changes made separately.
+- Snapshots preserve a template record, code and website files, not DynamoDB job data or secret values. Restoration extracts compatible code from the saved record and places it on current infrastructure; it does not reverse separately applied configuration changes or data writes.
 - Artifact storage, S3 requests, invalidations, health invocations and ordinary app use can incur AWS charges. The new bucket retains releases/object versions for recovery; no automatic expiry can accidentally remove the currently deployed code. Review storage and retire old releases deliberately. Deleting CloudWatch logs does not free CloudShell disk space.
 - Deployment records/checksums detect accidental changes; they are not an independent tamper-proof attestation against someone who controls the deployment role. No public Actions build artifacts or application secrets are uploaded.
 
-The implementation is in [bootstrap_delivery.py](../scripts/bootstrap_delivery.py), [delivery_event.py](../scripts/delivery_event.py), [deploy_aws.py](../scripts/deploy_aws.py) and [delivery_common.py](../scripts/delivery_common.py). The AWS credentials action is [pinned to v6.2.4's commit](https://github.com/aws-actions/configure-aws-credentials/commit/cbe3b392738ccf3f987d68400dafcf4b0624a56c).
+The implementation is in [bootstrap_delivery.py](../scripts/bootstrap_delivery.py), [delivery_event.py](../scripts/delivery_event.py), [deploy_aws.py](../scripts/deploy_aws.py), [application_release.py](../scripts/application_release.py) and [delivery_common.py](../scripts/delivery_common.py). The AWS credentials action is [pinned to v6.2.4's commit](https://github.com/aws-actions/configure-aws-credentials/commit/cbe3b392738ccf3f987d68400dafcf4b0624a56c).

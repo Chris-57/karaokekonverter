@@ -1,6 +1,6 @@
 # CloudWatch monitoring and incident response — 0.3.0
 
-The owner reports that both SoundCloud and Spotify work on AWS. The existing SNS email subscription is confirmed. This release adds monitoring to the same stack; cloud deployment and receipt of the test emails remain owner-run acceptance steps.
+I tested both SoundCloud and Spotify on AWS, deployed this monitoring update to the same stack, and received the controlled ALARM and OK emails through the confirmed SNS subscription. The observations are recorded in [monitoring acceptance](evidence/monitoring-acceptance.md); the procedures below support future tests and incident response.
 
 ## Coverage
 
@@ -122,7 +122,7 @@ That reset changes only the synthetic test metric. An OK email may arrive after 
 
 | Alarm or code | First action | Recovery check |
 | --- | --- | --- |
-| YouTube key, API disabled, quota | Inspect the safe code and owner's Google project configuration; stop repeating the same conversion | One small job after correction or quota recovery |
+| YouTube key, API disabled, quota | Inspect the safe error code and Google project configuration; stop repeating the same conversion | One small job after correction or quota recovery |
 | Browser/source failure | Check `source_browser_failed` stage and conversion code; compare the two sources | A complete read from the affected source; stop at login/verification challenges |
 | Lambda throttle | Inspect account concurrency and the existing two-worker SQS mapping | Traffic succeeds without new throttles; do not reserve capacity in the current ten-concurrency account |
 | Queue age / worker Errors | Inspect timeout/runtime logs, event mapping and backlog | Queue drains and the new job completes; SQS visibility is 3600 seconds so infrastructure retry is not immediate |

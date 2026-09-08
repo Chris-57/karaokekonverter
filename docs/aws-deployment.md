@@ -1,6 +1,6 @@
 # AWS deployment
 
-The working demo is stack **karaokekonverter-dev** in **us-east-2**, with both sources and monitoring enabled. The owner reports successful conversions, completed monitoring deployment and both controlled notification emails. Follow [deployment automation](deployment-automation.md) for the new GitHub OIDC workflow. This page retains manual/operator deployment instructions.
+The working demo is stack **karaokekonverter-dev** in **us-east-2**, with both sources and monitoring enabled. I tested successful conversions, completed the monitoring deployment and received both controlled notification emails. Follow [deployment automation](deployment-automation.md) for the new GitHub OIDC workflow. This page retains manual/operator deployment instructions.
 
 After the first automated update, the stack retains its scoped CloudFormation service role. Pause automatic deployments and review that role's permissions before a manual infrastructure change; administrator access in your shell alone does not expand the role CloudFormation uses. See [recovery and infrastructure changes](deployment-recovery.md).
 
@@ -47,7 +47,7 @@ Run `python3 scripts/monitoring.py status` for dashboard/alarm configuration. Th
 
 Prepare authorized deployment access, budget alerts, Node.js 24 and appropriate quotas using [account preparation](aws-account-preparation.md). Review the template before creating billable resources. Deploy a new stack with SAM, then use its `ConfigurationSecretArn` output to configure **YOUTUBE_API_KEY** while retaining the generated **APP_ACCESS_CODE** and browser source mode. Keep secret values in the AWS console/Secrets Manager.
 
-Publish the website to that stack's output bucket and confirm the owner's email subscription to its SNS topic. Complete acceptance for both sources from the new AWS environment. Provider access from one computer or account does not establish access from another.
+Publish the website to that stack's output bucket and confirm the operator's email subscription to its SNS topic. Complete acceptance for both sources from the new AWS environment. Provider access from one computer or account does not establish access from another.
 
 ## Recovery
 

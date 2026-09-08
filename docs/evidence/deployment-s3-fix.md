@@ -4,7 +4,7 @@ Prepared on 2026-09-08 for the first automated deployment from main commit `1103
 
 ## Observed failure
 
-The owner supplied the log and screenshots for [Deploy AWS run 34252993376](https://github.com/Chris-57/karaokekonverter/actions/runs/34252993376). Tests, infrastructure validation, the Lambda build and temporary AWS authentication passed. Packaging uploaded the Lambda archives. The deployment then reported that `s3api get-object` required `--bucket` and `--key`.
+I observed the following failure in [Deploy AWS run 34252993376](https://github.com/Chris-57/karaokekonverter/actions/runs/34252993376). Tests, infrastructure validation, the Lambda build and temporary AWS authentication passed. Packaging uploaded the Lambda archives. The deployment then reported that `s3api get-object` required `--bucket` and `--key`.
 
 The helper passed those inputs through `--cli-input-json`. Unlike ordinary modeled AWS CLI commands, this streaming-output command requires explicit options plus a positional output filename. The correction follows the [AWS get-object command reference](https://docs.aws.amazon.com/cli/latest/reference/s3api/get-object.html). `put-object` supports JSON inputs and does not need the same change; its existing binary upload, encryption and conditional-write behavior remains in place. [AWS put-object reference](https://docs.aws.amazon.com/cli/latest/reference/s3api/put-object.html).
 
@@ -22,11 +22,11 @@ The summary's statement about an empty CloudFormation change set came from a uni
 | Actions summary isolation | Full local suite preserves an existing external summary file byte for byte |
 | Actual AWS CLI v2 | Two additional tests in `tests/test_delivery_cli.py`; class skipped locally because CLI v2 is unavailable; required rather than skipped when `GITHUB_ACTIONS=true` |
 | Loopback HTTP fixture | Checked with the installed AWS SDK for unsigned binary downloads, literal keys and the missing-object error; this does not substitute for the CLI test |
-| Live AWS retry | Pending the owner's new CI/deployment run |
+| Live AWS retry | Subsequent run 34256306001 downloaded the snapshot successfully; see the current acceptance record |
 
 The CLI tests invoke the repository helper and the real `aws` executable against `127.0.0.1`, with signing disabled, isolated configuration files and short network timeouts. They do not use AWS credentials or contact AWS. Both existing workflows discover the tests before the deployment credentials step. A missing CLI v2 fails the tests on GitHub.
 
-The local preparation did not run a new SAM build or contact AWS or music providers. The owner-supplied first run already passed its clean build; the corrected commit will go through the complete workflows again.
+The local preparation did not run a new SAM build or contact AWS or music providers. My first deployment run passed its clean build. Later attempts and remaining acceptance are recorded in [deployment acceptance](deployment-acceptance.md).
 
 ## Apply and retry
 

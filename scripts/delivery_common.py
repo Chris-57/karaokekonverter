@@ -156,7 +156,7 @@ def code_objects(template):
     return result
 
 
-def check_changes(changes, resources):
+def check_changes(changes, resources, application_only=False):
     """Apply only in-place updates to known resources; never expand deployment privileges."""
     for change in changes:
         resource = change.get("ResourceChange", {})
@@ -166,6 +166,15 @@ def check_changes(changes, resources):
             raise DeliveryError(f"{name}: resource additions, removals, imports and replacements need an operator update.")
         if kind.startswith(("AWS::IAM::", "AWS::SecretsManager::")) or kind == "AWS::Logs::QueryDefinition":
             raise DeliveryError(f"{name}: IAM, secret and saved-query changes need an operator update.")
+        if application_only:
+            if kind != "AWS::Lambda::Function" or name not in {"ApiFunction", "WorkerFunction", "AvailabilityFunction"}:
+                raise DeliveryError(f"{name}: application releases may update only the three Lambda code packages.")
+            if any(scope != "Properties" for scope in resource.get("Scope", [])):
+                raise DeliveryError(f"{name}: non-code resource changes need an operator update.")
+            for detail in resource.get("Details", []):
+                target = detail.get("Target", {})
+                if target.get("Attribute") != "Properties" or target.get("Name") != "Code":
+                    raise DeliveryError(f"{name}: changes outside Lambda Code need an operator update.")
 
 
 def wait_change_set(aws, stack, name, timeout=300, sleep=time.sleep, clock=time.monotonic):

@@ -21,11 +21,12 @@
   "samLint": "passed",
   "availabilityLambdaSamBuild": "passed offline; no dependencies",
   "productionArchiveImports": "passed with existing installed dependencies",
-  "fullCleanApplicationSamBuild": "Owner reports a successful full CloudShell build; not rerun with clean dependencies in the preparation environment",
-  "liveMonitoringDeployment": "Owner reports UPDATE_COMPLETE",
-  "metricFilterAlarmAndSnsExercise": "Owner reports monitoring commands passed; controlled test/reset visible in supplied dashboard screenshots",
-  "emailReceipt": "Owner confirmed both controlled ALARM and OK emails received",
+  "fullCleanApplicationSamBuild": "My CloudShell build succeeded; the preparation environment did not repeat a clean dependency installation.",
+  "liveMonitoringDeployment": "I confirmed UPDATE_COMPLETE.",
+  "metricFilterAlarmAndSnsExercise": "My monitoring commands passed; the controlled test/reset was visible in my dashboard screenshots.",
+  "emailReceipt": "I received both controlled ALARM and OK emails.",
   "ownerReportedBaseline": "Both sources working on AWS; populated metrics show 14 read / 13 matched in the displayed sample",
   "evidenceSummary": "evidence/monitoring-acceptance.md",
-  "githubHostedCi": "Pending first publication/run"
+  "githubHostedCi": "Subsequent CI results are recorded in validation.md.",
+  "recordScope": "Historical monitoring acceptance and local preparation record; current delivery results are in delivery-validation.json."
 }

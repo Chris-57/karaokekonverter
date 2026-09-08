@@ -1,6 +1,6 @@
 # CloudFormation SAM transform permission correction
 
-Prepared on 2026-09-08 for the owner-supplied [Deploy AWS run 34256306001](https://github.com/Chris-57/karaokekonverter/actions/runs/34256306001).
+Prepared on 2026-09-08 after my [Deploy AWS run 34256306001](https://github.com/Chris-57/karaokekonverter/actions/runs/34256306001).
 
 ## Observed progress and failure
 
@@ -56,4 +56,4 @@ Pushing the generator change does not update the IAM policy already deployed in 
 - The new permission regression fails against the original generator and passes after the correction. It requires the permission on the CloudFormation service role, the exact regional AWS-owned SAM transform ARN and only the required CloudFormation action.
 - Forty local Python tests passed, including the existing IAM quotas, trust, change-set guards and S3 transport regressions. The two real CLI tests remain skipped in this workspace because AWS CLI v2 is unavailable; GitHub requires them.
 - The updated generated bootstrap passes SAM/cfn-lint validation with synthetic account and resource metadata. Its changed managed policy is 3,836 compact JSON bytes for that fixture, within the existing size gate.
-- Source preparation does not exercise live AWS IAM authorization. The bootstrap update and deployment retry remain owner-run acceptance. The earlier S3 fix and application source do not change in this correction.
+- Source preparation does not exercise live AWS IAM authorization. I subsequently applied the bootstrap update; run 34258887801 reached the change-set guard beyond the previous SAM authorization error. See [current acceptance](deployment-acceptance.md). The earlier S3 fix and application source do not change in this correction.

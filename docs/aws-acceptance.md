@@ -1,10 +1,10 @@
 # Cloud acceptance checklist — 0.3.0
 
-Use these procedures after a relevant [AWS update](aws-deployment.md). The owner has already supplied successful small runs for both sources and monitoring acceptance; [validation](validation.md) records completed and outstanding evidence. The goal is to establish live AWS behavior for both sources. Automated fixture checks already cover the code paths; they do not prove that Spotify will serve the public page to the Lambda browser.
+Use these procedures after a relevant [AWS update](aws-deployment.md). I have completed successful small runs for both sources and monitoring acceptance; [validation](validation.md) records completed and outstanding evidence. The goal is to establish live AWS behavior for both sources. Automated fixture checks already cover the code paths; they do not prove that Spotify will serve the public page to the Lambda browser.
 
-Use the application's CloudFront website and its existing access code. The local key-entry screen is not an AWS setup step. Both sources use the owner's existing YouTube key from Secrets Manager. No Spotify sign-in or Spotify developer key is used by this adapter.
+Use the application's CloudFront website and its existing access code. The local key-entry screen is not an AWS setup step. Both sources use the existing YouTube key from Secrets Manager. No Spotify sign-in or Spotify developer key is used by this adapter.
 
-Real successful conversions make YouTube search requests and consume the project's available quota; empty or unsuitable matches can require one fallback query per song. Run each case once initially. The owner has already set up the AWS budget; this checklist does not require changing it.
+Real successful conversions make YouTube search requests and consume the project's available quota; empty or unsuitable matches can require one fallback query per song. Run each case once initially. I have already set up the AWS budget; this checklist does not require changing it.
 
 ## A. Small playlist tests first
 
@@ -77,4 +77,4 @@ For each live case, record:
 | Duration | Your observed elapsed time and Lambda REPORT duration, identified separately |
 | Evidence | Result screenshot and relevant sanitized log entries |
 
-Minimum next feedback: the Spotify result (including all source rows), health version, and whether SoundCloud still works. If a failure occurs, include its approximate time and the `source_browser_failed` / `conversion_failed` entries. We can then record live acceptance accurately and move to monitoring, alerts and CI/CD.
+Record each source result, including source rows, health version and approximate time. If a failure occurs, include the sanitized `source_browser_failed` or `conversion_failed` entries. Add the evidence to the validation record before marking the relevant acceptance item complete.

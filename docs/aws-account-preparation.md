@@ -1,6 +1,6 @@
 # AWS account preparation
 
-For the existing demonstration, account setup is complete: the owner uses a non-root deployment identity, retired the old root access key, configured MFA and a monthly budget, and deployed the stack in Ohio. This repository does not contain account credentials. New operators should adapt these steps to their own account.
+For the existing demonstration, account setup is complete: I use a non-root deployment identity, retired the old root access key, configured MFA and a monthly budget, and deployed the stack in Ohio. This repository does not contain account credentials. New operators should adapt these steps to their own account.
 
 ## Access and region
 
@@ -10,7 +10,7 @@ Deployment permissions differ from Lambda runtime roles. The deployer needs to m
 
 ## Budget and operating limits
 
-The owner has already configured an account-wide monthly $5 budget with $1 actual, $5 actual and $5 forecast alerts. This is a notification setup, not a cost prediction or spending cap. The monitoring footprint can exceed that amount before free allowances; review [monitoring costs](monitoring.md#costs-and-retention) and the current bill. Existing resources can also incur charges. Do not create a duplicate budget for the existing demo.
+I have configured an account-wide monthly $5 budget with $1 actual, $5 actual and $5 forecast alerts. This is a notification setup, not a cost prediction or spending cap. The monitoring footprint can exceed that amount before free allowances; review [monitoring costs](monitoring.md#costs-and-retention) and the current bill. Existing resources can also incur charges. Do not create a duplicate budget for the existing demo.
 
 The account's observed Lambda concurrency limit was ten. The template has no function reserved concurrency and caps this queue's event-source concurrency at two. Other functions still share the account pool. Recheck quotas before changing this design. Both sources are enabled, with the agreed 20-track application cap.
 

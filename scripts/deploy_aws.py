@@ -12,6 +12,7 @@ from scripts.delivery_common import (ASSETS, Aws, DeliveryError, ROOT, check_cha
     processed_template, release_id, stable_stack, summary, verify_website,
     verify_with_retries, wait_change_set, wait_stack_update)
 from scripts.delivery_event import current_main, validate_context
+from scripts.application_release import build_application_template, check_source_contract
 
 
 def version_at(aws, bucket, key, version=None):
@@ -156,7 +157,7 @@ def load_release(aws, bucket, identifier, stack_id, account, region):
     return manifest, template, assets
 
 
-def capture_baseline(aws, bucket, identifier, stack, region, account):
+def capture_baseline(aws, bucket, identifier, stack, region, account, template=None):
     current = outputs(stack)
     assets = {name: aws.get_blob(current["WebsiteBucket"], name) for name in ASSETS}
     observed_version = None
@@ -166,7 +167,7 @@ def capture_baseline(aws, bucket, identifier, stack, region, account):
     except Exception:
         # A recovery attempt must still be possible when the current application is broken.
         summary("The current website did not pass baseline checks. Its snapshot will not be offered as a verified restore target.")
-    template = snapshot_code(aws, processed_template(aws, stack["StackName"]), bucket, identifier)
+    template = snapshot_code(aws, template if template is not None else processed_template(aws, stack["StackName"]), bucket, identifier)
     manifest = save_release(aws, bucket, identifier, template, assets, {
         "stackId": stack["StackId"], "account": account, "region": region,
         "applicationVersion": observed_version, "commit": None, "kind": "captured-baseline"})
@@ -189,20 +190,30 @@ def all_changes(aws, stack_name, change_name, first):
     return changes
 
 
-def update_stack(aws, stack, resources, role_arn, bucket, manifest, still_current):
+def update_stack(aws, stack, resources, role_arn, bucket, manifest, still_current, before_execute=None):
     change_name = stack["StackName"] + "-delivery-" + manifest["releaseId"]
     template_url = f"https://{bucket}.s3.{aws.region}.amazonaws.com/" + manifest["template"]["key"]
     request = {"StackName": stack["StackName"], "ChangeSetName": change_name, "ChangeSetType": "UPDATE",
-        "TemplateURL": template_url, "RoleARN": role_arn, "Capabilities": ["CAPABILITY_IAM"],
+        "TemplateURL": template_url, "RoleARN": role_arn,
+        "Capabilities": ["CAPABILITY_NAMED_IAM" if "CAPABILITY_NAMED_IAM" in stack.get("Capabilities", []) else "CAPABILITY_IAM"],
+        "Tags": copy.deepcopy(stack.get("Tags", [])),
         "Description": "KaraokeKonverter release " + manifest["releaseId"],
         "ClientToken": manifest["releaseId"]}
     if stack.get("Parameters"):
         request["Parameters"] = [{"ParameterKey": item["ParameterKey"], "UsePreviousValue": True} for item in stack["Parameters"]]
+    for key in ("NotificationARNs", "RollbackConfiguration"):
+        if key in stack:
+            request[key] = copy.deepcopy(stack[key])
     aws.call("cloudformation", "create-change-set", request)
-    result = wait_change_set(aws, stack["StackName"], change_name)
     try:
+        result = wait_change_set(aws, stack["StackName"], change_name)
         if result is not None:
-            check_changes(all_changes(aws, stack["StackName"], change_name, result), resources)
+            changes = all_changes(aws, stack["StackName"], change_name, result)
+            print("Proposed resource changes: " + json.dumps([
+                {key: change.get("ResourceChange", {}).get(key) for key in
+                 ("LogicalResourceId", "ResourceType", "Action", "Replacement", "Scope")}
+                for change in changes]), flush=True)
+            check_changes(changes, resources, application_only=True)
         latest = get_stack(aws, stack["StackName"])
         stable_stack(latest)
         if latest.get("LastUpdatedTime", latest.get("CreationTime")) != stack.get("LastUpdatedTime", stack.get("CreationTime")):
@@ -217,6 +228,8 @@ def update_stack(aws, stack, resources, role_arn, bucket, manifest, still_curren
         summary("CloudFormation found no resource changes; website publication and verification will still run.")
         return
     summary(f"Executing `{change_name}`. CloudFormation events remain available if this runner disconnects.")
+    if before_execute is not None:
+        before_execute()
     aws.call("cloudformation", "execute-change-set", {"StackName": stack["StackName"],
         "ChangeSetName": change_name, "ClientRequestToken": "execute-" + manifest["releaseId"]})
     wait_stack_update(aws, stack["StackName"], stack.get("LastUpdatedTime", stack.get("CreationTime")))
@@ -237,11 +250,14 @@ def publish_and_verify(aws, bucket, stack_outputs, manifest, assets):
     mark_verified(aws, bucket, manifest, "deployed")
 
 
-def main():
+def main(progress=None):
+    progress = progress if progress is not None else {"phase": "preparation"}
     config, commit, mode, restore = validate_context()
     if current_main(config) != commit:
         summary("Skipped an obsolete main commit before requesting application changes.")
         return
+    if mode == "deploy":
+        check_source_contract()
     expected_account = os.environ.get("AWS_ACCOUNT_ID", "")
     if not re.fullmatch(r"[0-9]{12}", expected_account):
         raise DeliveryError("Set the AWS_ACCOUNT_ID repository variable.")
@@ -262,8 +278,9 @@ def main():
     if stack.get("RoleARN") not in (None, role_arn):
         raise DeliveryError("The stack already uses a different service role; review it before changing delegation.")
     resources = inventory(aws, config["stack"])
+    live_template = processed_template(aws, config["stack"])
     metadata = {"stackId": stack["StackId"], "account": expected_account, "region": config["region"],
-                "commit": commit, "kind": "deployment"}
+                "commit": commit, "kind": "deployment", "scope": "lambda-code-and-website"}
     if mode == "restore":
         previous, template, assets = load_release(aws, bucket, restore, stack["StackId"], expected_account, config["region"])
         metadata.update(applicationVersion=previous["applicationVersion"], commit=previous.get("commit"),
@@ -277,29 +294,46 @@ def main():
             "--s3-bucket", bucket, "--s3-prefix", f"releases/{identifier}/lambda",
             "--output-template-file", str(destination), "--use-json", "--region", config["region"]], check=True)
         template = freeze_package(aws, json.loads(destination.read_text()), bucket, identifier)
+    template = build_application_template(live_template, template)
     try:
-        capture_baseline(aws, bucket, snapshot_id, stack, config["region"], expected_account)
+        capture_baseline(aws, bucket, snapshot_id, stack, config["region"], expected_account, template=live_template)
     except Exception:
         if mode != "restore":
             raise
         # A missing current website object must not block restoration of a checked release.
         summary("Could not finish capturing the current deployment. Continuing with the previously verified restore target.")
     manifest = save_release(aws, bucket, identifier, template, assets, metadata)
-    summary(f"Prepared release `{identifier}` from commit `{metadata.get('commit') or 'captured baseline'}`.")
-    update_stack(aws, stack, resources, role_arn, bucket, manifest, lambda: current_main(config) == commit)
+    summary(f"Prepared application release `{identifier}` from commit `{metadata.get('commit') or 'captured baseline'}`. "
+            "The template retains deployed infrastructure and replaces only the three Lambda code packages.")
+    update_stack(aws, stack, resources, role_arn, bucket, manifest, lambda: current_main(config) == commit,
+                 before_execute=lambda: progress.update(phase="stack-update"))
     current = get_stack(aws, config["stack"])
     stable_stack(current)
+    progress["phase"] = "website-publication"
     publish_and_verify(aws, bucket, outputs(current), manifest, assets)
+    progress["phase"] = "verified"
     summary(f"Verified release `{identifier}`: [open website]({outputs(current)['WebsiteUrl']}). "
             "Health, release marker and all three website hashes passed. Live Spotify/SoundCloud conversions remain a separate smoke test.")
 
 
+def report_failure(error, progress):
+    summary(f"Deployment stopped: {str(error)[:1800]}")
+    if progress["phase"] == "preparation":
+        summary("Stopped before requesting application changes. The running application was not updated by this run; "
+                "release preparation may have saved private package artifacts and a recovery snapshot.")
+    elif progress["phase"] == "stack-update":
+        summary("A CloudFormation update was requested. Inspect its current status/events before retrying; "
+                "it may continue after this runner stops.")
+    else:
+        summary("Website publication started. Check the live app and stack; if verification fails, "
+                "use the documented restore action with a verified release or healthy baseline snapshot.")
+
+
 if __name__ == "__main__":
+    progress = {"phase": "preparation"}
     try:
-        main()
+        main(progress)
     except Exception as error:
         # No AWS secret values, application access codes or provider responses are read/logged here.
-        summary(f"Deployment stopped: {str(error)[:1800]}")
-        summary("Inspect CloudFormation before retrying. For a completed stack with failed website checks, "
-                "run the documented restore action using a verified release or the recorded healthy snapshot.")
+        report_failure(error, progress)
         sys.exit(1)

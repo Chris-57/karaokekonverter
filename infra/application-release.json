@@ -1,0 +1,6 @@
+{
+  "schema": 1,
+  "scope": "lambda-code-and-website",
+  "template": "infra/template.yaml",
+  "templateSha256": "e41cccc764fb381b83ad655362c161c2f66820d998c0f24bd6289df0560f4ea0"
+}

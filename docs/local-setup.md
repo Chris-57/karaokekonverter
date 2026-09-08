@@ -44,7 +44,7 @@ Inspect each returned karaoke candidate before using the combined playback list.
 
 The combined converter keeps its **20-track limit** to bound search usage. The separate metadata probe allowed 200 because it did not search YouTube. RapCaviar's 50 songs therefore exceed this app's current limit and will be rejected before YouTube searches begin.
 
-Locally, Spotify uses the same visible temporary-browser mode as the successful probe. A separate Chrome/Edge window can appear while its playlist is read and then closes. Leave it alone; no login is needed. SoundCloud continues to use a background browser. The owner can explicitly set `SPOTIFY_HEADLESS=true` for a background Spotify browser, but that mode needs its own live check. AWS always uses the shared headless Lambda Chromium launcher, independent of this local setting.
+Locally, Spotify uses the same visible temporary-browser mode as the successful probe. A separate Chrome/Edge window can appear while its playlist is read and then closes. Leave it alone; no login is needed. SoundCloud continues to use a background browser. For a local installation, explicitly set `SPOTIFY_HEADLESS=true` for a background Spotify browser, but that mode needs its own live check. AWS always uses the shared headless Lambda Chromium launcher, independent of this local setting.
 
 ## Keys and local configuration
 
@@ -64,7 +64,7 @@ To change the key, open **YouTube connection** while no conversion is running, p
 
 `npm.cmd run setup` remains an optional terminal alternative. It now uses ordinary **visible input** and tests one real search before saving. Prefer the website to avoid terminal paste issues.
 
-An optional `.env.example` documents advanced settings. `SOUNDCLOUD_MODE=api` retains the official SoundCloud adapter for an owner who already has app credentials. The Spotify option in this release is browser extraction, not the Spotify Web API.
+An optional `.env.example` documents advanced settings. `SOUNDCLOUD_MODE=api` retains the official SoundCloud adapter for an operator who already has app credentials. The Spotify option in this release is browser extraction, not the Spotify Web API.
 
 
 See [local troubleshooting](local-runbook.md) and [the architecture](architecture.md) for configuration and request boundaries.

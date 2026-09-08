@@ -1,27 +1,25 @@
-# Roadmap
+# My project roadmap
 
 ## Working baseline
 
-Version 0.3.0 supports the local and AWS SoundCloud/Spotify conversion paths with a 20-track cap. The owner reports successful live conversions from both sources. CloudWatch dashboard data and controlled ALARM/OK email receipt have been supplied. See [validation](validation.md) and [monitoring evidence](evidence/monitoring-acceptance.md).
+I have deployed KaraokeKonverter 0.3.0 and tested both Spotify and SoundCloud conversions with the 20-track cap. I also observed CloudWatch metrics and received the controlled ALARM/OK emails. The public repository includes source, tests, infrastructure and technical documentation, and my initial and dependency-fix CI runs passed. See [validation](validation.md).
 
-## Completed: publish the repository and run CI
+## Current priority: complete application delivery
 
-The public repository is `Chris-57/karaokekonverter`. It includes source, tests, infrastructure, operational documentation, a pinned CI workflow and dependency-update proposals. The owner supplied passing initial and dependency-fix CI runs. The application runtime, provider dependencies and app stack definitions remain those of the working 0.3.0 release.
+The delivery bootstrap, OIDC authentication and baseline snapshot checks have worked in AWS. The latest release stopped before execution because its change set proposed an IAM role change. The corrected application release path preserves deployed infrastructure and stack tags; local regressions and full-template lint passed.
 
-## Current: connect and accept AWS deployment automation
+1. Apply the [application release correction](apply-deployment-fix.md) and obtain a green CI result for that commit.
+2. Record a successful **Deploy AWS** run that ends with verified website hashes, health and release marker.
+3. Test one known working Spotify playlist and one SoundCloud playlist on the deployed app.
+4. Confirm a later passing main push produces an automatically verified release.
+5. Exercise restoration of an earlier verified release, test both sources, and return to current main.
 
-1. Merge the prepared delivery workflow and require passing CI for `main`.
-2. Apply the separate IAM/bootstrap stack using the existing administrator's CloudShell session.
-3. Configure the three non-secret repository variables and run the first OIDC deployment.
-4. Verify live Spotify and SoundCloud conversions, then a harmless automatic main release and deliberate restore of a verified release.
-5. Record commit, workflow URL and release/recovery evidence in the public reviewer materials. Keep API keys and the shared demo code private.
+I am keeping the existing application usable while completing these checks. The [acceptance record](evidence/deployment-acceptance.md) separates a working demonstration from the still-unverified deployment and restore steps.
 
-The workflow, resource-scoped bootstrap generator, release snapshots, post-deploy checks and restore action are implemented in this update. Live AWS authorization/deployment/restore are not yet claimed. Follow [deployment automation](deployment-automation.md); manual infrastructure changes must account for the persistent CloudFormation service role described there.
+## Later acceptance and product decisions
 
-## Remaining acceptance and product decisions
+Record live 20/21-track boundaries, a per-source job trace and deliberate queue/retry behavior when those checks are needed. Fixture coverage does not establish sustained capacity or availability.
 
-Record live 20/21-track boundaries, a per-source job trace and deliberately exercised queue/retry behavior when those checks are needed. Existing fixture coverage is not a substitute for those live records. The small successful runs are not a throughput or availability objective.
+Spotify remains central to my project. Its current public-page adapter depends on provider behavior; broader service operation needs a supported access decision and usage controls beyond a shared demo code.
 
-Spotify's public-page adapter remains dependent on provider behavior and its supported-access decision. Broader public-service operation needs that decision, usage controls and an access design beyond a shared demonstration code.
-
-Saved named YouTube playlists would require authorization for a destination account and playlist-write APIs, with explicit token storage/revocation and partial-write handling. The current temporary link and app-only name remain the agreed output. Other providers and larger playlists are outside the current scope.
+Saved named YouTube playlists would require destination-account authorization and playlist-write APIs, with token revocation and partial-write handling. The current output remains a temporary playback link with an app-only set name. Other providers and larger playlists are outside the present scope.
