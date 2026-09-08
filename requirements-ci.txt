@@ -1,3 +1,4 @@
 # Development tools only. Application runtime dependencies stay in package-lock.json.
+# SAM installs cfn-lint within its declared compatible range. Keep it as a
+# transitive dependency so Dependabot does not upgrade it independently of SAM.
 aws-sam-cli==1.166.1
-cfn-lint==1.53.3
