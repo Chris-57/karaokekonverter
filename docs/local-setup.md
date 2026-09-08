@@ -32,13 +32,15 @@ Requirements: **Node.js 24 or newer**, an installed Chrome/Chromium or Edge brow
 
 ## What to try first
 
-Use the six-song **Other Songs** Spotify playlist:
+Use the **KaraoketesterSpotify** example playlist:
 
-[Other Songs on Spotify](https://open.spotify.com/playlist/30NcvL51dhP4HKscAuzKY7)
+[KaraoketesterSpotify](https://open.spotify.com/playlist/33DGn1H9Itci505ypgJ3Mw)
 
-Then check the familiar SoundCloud playlist:
+Then try the SoundCloud example:
 
-[Chris1 on SoundCloud](https://soundcloud.com/chris-meumann/sets/chris1)
+[KaraokeTesterSoundcloud](https://soundcloud.com/chris-meumann/sets/karaoketestersoundcloud)
+
+Confirm each playlist is public and contains no more than 20 tracks. Compare the results against its current visible titles, count and order.
 
 Inspect each returned karaoke candidate before using the combined playback list. There is no guarantee that every song has a suitable karaoke recording. Missing matches are shown individually; successful matches remain available in a partial result.
 

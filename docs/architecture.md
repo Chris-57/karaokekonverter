@@ -56,7 +56,7 @@ Request example:
 ```json
 {
   "source": "spotify",
-  "url": "https://open.spotify.com/playlist/30NcvL51dhP4HKscAuzKY7",
+  "url": "https://open.spotify.com/playlist/33DGn1H9Itci505ypgJ3Mw",
   "playlistName": "Friday karaoke"
 }
 ```

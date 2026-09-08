@@ -8,7 +8,12 @@ Open [KaraokeKonverter on AWS](https://d2j5ofy3dzbrbx.cloudfront.net). Use the a
 4. Open the combined playback list, or use the displayed URL and **Copy link** button.
 5. Repeat with the other source if desired.
 
-Two small playlists used during development are [Chris1 on SoundCloud](https://soundcloud.com/chris-meumann/sets/chris1) and [Other Songs on Spotify](https://open.spotify.com/playlist/30NcvL51dhP4HKscAuzKY7). Public playlist contents and availability can change; check their current count before submitting.
+Use these example playlists:
+
+- **SoundCloud:** [KaraokeTesterSoundcloud](https://soundcloud.com/chris-meumann/sets/karaoketestersoundcloud)
+- **Spotify:** [KaraoketesterSpotify](https://open.spotify.com/playlist/33DGn1H9Itci505ypgJ3Mw)
+
+Copy the playlist URL into the application's input field. Public playlist contents and availability can change; confirm each is public and contains no more than 20 tracks before submitting.
 
 ## What the result means
 

@@ -8,6 +8,13 @@ I designed KaraokeKonverter to turn a public **SoundCloud or Spotify playlist** 
 
 The hosted demo requires an application access code that I share privately. Visitors do not supply a YouTube key or sign into a music service. Public playlists are limited to **20 tracks**. The backend uses YouTube Data API v3 for search; the deployed SoundCloud and Spotify readers extract public-page metadata with Chromium. Spotify Web API/OAuth integration is not implemented.
 
+Example playlists to paste into the demo:
+
+- **SoundCloud:** [KaraokeTesterSoundcloud](https://soundcloud.com/chris-meumann/sets/karaoketestersoundcloud)
+- **Spotify:** [KaraoketesterSpotify](https://open.spotify.com/playlist/33DGn1H9Itci505ypgJ3Mw)
+
+Use the playlist URL in the application's input field. Each playlist must be public and contain no more than 20 tracks.
+
 ## What it does
 
 - Select SoundCloud or Spotify, paste a playlist URL and optionally name the set.

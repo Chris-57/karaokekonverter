@@ -55,7 +55,7 @@ aws cloudformation describe-stacks --stack-name karaokekonverter-dev --region us
 
 Open your existing CloudFront website's `/api/health` address. Confirm `version` is `0.2.3`, `configured` is `true`, and `maxTracks` is `20`. The health check confirms configuration presence, not successful Google authentication or playlist reading.
 
-Refresh the application, use the existing generated access code, and submit a new Chris1 conversion. The failed job from the old version remains failed; it is not automatically retried by this update. Record the new outcome, track count and match results. A successful live conversion has not yet been established by the local regression tests.
+Refresh the application, use the existing generated access code, and submit a new conversion using [KaraokeTesterSoundcloud](https://soundcloud.com/chris-meumann/sets/karaoketestersoundcloud). Confirm the playlist is public and contains no more than 20 tracks. The failed job from the old version remains failed; it is not automatically retried by this update. Record the new outcome, track count and match results. A successful live conversion has not yet been established by the local regression tests.
 
 If it fails, retrieve the worker logs for the most recent attempt:
 

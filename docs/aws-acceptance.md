@@ -10,11 +10,11 @@ Real successful conversions make YouTube search requests and consume the project
 
 1. Check `/api/health`: version `0.3.0`, `configured: true`, `maxTracks: 20`, both sources listed, and browser-mode source readiness true.
 2. Open the website, hard-refresh with **Ctrl+F5**, and confirm the SoundCloud and Spotify controls are available. The access-code field remains visible; a music-service login is not requested.
-3. Choose **Spotify** and submit the same small public playlist that worked locally. The earlier sample was [Other Songs](https://open.spotify.com/playlist/30NcvL51dhP4HKscAuzKY7). Check its current public track count and order in a signed-out browser first; the earlier report had six songs.
+3. Choose **Spotify** and submit [KaraoketesterSpotify](https://open.spotify.com/playlist/33DGn1H9Itci505ypgJ3Mw). Check its current public track count and order in a signed-out browser first; the playlist must contain no more than 20 tracks.
 4. Record the start time and watch the stage progress from reading Spotify to finding matches. Compare every source row with the public playlist: title, artist credits, count and order. Every input song should appear in the result, including songs with no karaoke match.
 5. Open individual **Review match** links. Confirm song identity and that the recording is suitable karaoke. A `PARTIAL` result is acceptable when extraction is complete and specific songs lack matches; missing source rows are not acceptable.
 6. Open the combined link, check the order of the matched videos, then use **Copy link** and paste it into a new tab. Both controls should open the same list.
-7. Repeat once with [SoundCloud Chris1](https://soundcloud.com/chris-meumann/sets/chris1) to check the working baseline after this update. Compare against its current visible count; earlier it contained six songs.
+7. Repeat once with [KaraokeTesterSoundcloud](https://soundcloud.com/chris-meumann/sets/karaoketestersoundcloud) to check the SoundCloud path after this update. Confirm it is public with no more than 20 tracks and compare results against its current visible count and order.
 
 If Spotify fails at reading, capture its error and recent worker logs using the [monitoring runbook](monitoring.md). A blocked, incomplete or login-required read means Spotify cloud acceptance is still open, even if infrastructure deployment and health checks passed.
 

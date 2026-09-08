@@ -77,9 +77,9 @@ For the already configured browser-mode installation, the expected fields are:
 
 Health reports installed source support and configuration presence. It does not make live Google or Spotify requests. Open your existing CloudFront website, hard-refresh with **Ctrl+F5**, choose **Spotify**, and use your existing application access code. Submit a new conversion; an old failed job is not automatically retried by a code update.
 
-Start with the previously tested six-song public Spotify playlist:
+Start with the current Spotify example, confirming it is public and contains no more than 20 tracks:
 
-https://open.spotify.com/playlist/30NcvL51dhP4HKscAuzKY7
+[KaraoketesterSpotify](https://open.spotify.com/playlist/33DGn1H9Itci505ypgJ3Mw)
 
 Then follow [aws-acceptance.md](aws-acceptance.md) for source order, limit, error, sharing and queue checks.
 
